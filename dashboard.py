@@ -1,0 +1,1871 @@
+#!/usr/bin/env python3
+"""
+ZYN Sales Intelligence — Dashboard Interativo v5
+Drill-down completo: Gestora → Fundo → Papel → Emissor → Devedor
+Design minimalista com identidade visual ZYN Capital
+"""
+import sys
+from pathlib import Path
+from io import BytesIO
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime
+import subprocess
+
+from config.settings import DATA_DIR, OUTPUT_DIR
+from src.analyzer import build_investor_profiles, match_deal_to_investors
+from src.family_offices import load_family_offices, add_investor, search_by_appetite
+from src.report_generator import export_investor_profiles, export_deal_matching
+
+
+def to_excel_bytes(df: pd.DataFrame, sheet_name: str = "Dados") -> bytes:
+    """Converte DataFrame para bytes Excel prontos para download."""
+    buf = BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name=sheet_name)
+        ws = writer.sheets[sheet_name]
+        for col_cells in ws.columns:
+            max_len = max(len(str(c.value or "")) for c in col_cells)
+            ws.column_dimensions[col_cells[0].column_letter].width = min(max_len + 3, 50)
+    return buf.getvalue()
+
+
+def safe_min(s):
+    vals = s.dropna()
+    return vals.min() if len(vals) > 0 else "—"
+
+def safe_max(s):
+    vals = s.dropna()
+    return vals.max() if len(vals) > 0 else "—"
+
+def excel_btn(df: pd.DataFrame, filename: str, label: str = "📥 Exportar Excel", key: str = None):
+    """Botão de download Excel inline."""
+    st.download_button(
+        label=label,
+        data=to_excel_bytes(df),
+        file_name=filename,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        key=key,
+    )
+
+# === CONFIG ===
+st.set_page_config(
+    page_title="ZYN Sales Intelligence",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# === CORES ZYN ===
+NAVY = "#223040"
+GRAY = "#8B9197"
+GREEN = "#2E7D4F"
+WHITE = "#FFFFFF"
+LIGHT_BG = "#F5F6F8"
+DARK_NAVY = "#1a2530"
+ACCENT_GREEN = "#34905a"
+
+# Paleta para charts
+CHART_COLORS = [NAVY, GREEN, "#E6A817", "#8B5CF6", GRAY, "#D4526E", "#2196F3", "#FF6B6B"]
+
+st.markdown(f"""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+    /* === Base === */
+    .stApp {{
+        background-color: {LIGHT_BG};
+        font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif;
+    }}
+    .stApp [data-testid="stAppViewContainer"] {{
+        font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif;
+    }}
+    h1, h2, h3, h4, h5, h6,
+    .stMarkdown, p, span, div, label, .stSelectbox, .stMultiSelect, .stTextInput {{
+        font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    }}
+
+    /* === Sidebar === */
+    section[data-testid="stSidebar"] {{
+        background: linear-gradient(180deg, {NAVY} 0%, {DARK_NAVY} 100%);
+        border-right: none;
+    }}
+    section[data-testid="stSidebar"] * {{
+        color: white !important;
+    }}
+    section[data-testid="stSidebar"] .stMarkdown p,
+    section[data-testid="stSidebar"] .stMarkdown h1,
+    section[data-testid="stSidebar"] .stMarkdown h2,
+    section[data-testid="stSidebar"] .stMarkdown h3,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] div,
+    section[data-testid="stSidebar"] .stMarkdown em {{
+        color: white !important;
+    }}
+    section[data-testid="stSidebar"] hr {{
+        border-color: rgba(255,255,255,0.15);
+    }}
+    /* Radio nav items */
+    section[data-testid="stSidebar"] label[data-baseweb="radio"] {{
+        color: rgba(255,255,255,0.9) !important;
+        font-size: 0.9rem !important;
+        font-weight: 400 !important;
+        padding: 0.4rem 0.8rem !important;
+        border-radius: 6px;
+        transition: all 0.15s ease;
+        margin-bottom: 2px;
+    }}
+    section[data-testid="stSidebar"] label[data-baseweb="radio"] p {{
+        color: rgba(255,255,255,0.9) !important;
+        font-size: 0.9rem !important;
+    }}
+    section[data-testid="stSidebar"] label[data-baseweb="radio"]:hover {{
+        background: rgba(255,255,255,0.08);
+    }}
+    section[data-testid="stSidebar"] label[data-baseweb="radio"]:hover p {{
+        color: white !important;
+    }}
+    /* Radio button circles */
+    section[data-testid="stSidebar"] div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {{
+        color: rgba(255,255,255,0.9) !important;
+        font-size: 0.9rem !important;
+    }}
+
+    /* === Page Header === */
+    .main-header {{
+        background: {NAVY};
+        padding: 1.6rem 2rem;
+        border-radius: 10px;
+        margin-bottom: 1.8rem;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }}
+    .main-header::before {{
+        content: '';
+        position: absolute;
+        top: 0; right: 0;
+        width: 200px; height: 100%;
+        background: linear-gradient(135deg, transparent 0%, rgba(46,125,79,0.15) 100%);
+    }}
+    .main-header h1 {{
+        color: white;
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+        font-family: 'Montserrat', sans-serif !important;
+        letter-spacing: -0.02em;
+    }}
+    .main-header p {{
+        color: rgba(255,255,255,0.55);
+        margin: 0.25rem 0 0;
+        font-size: 0.82rem;
+        font-weight: 400;
+        letter-spacing: 0.01em;
+    }}
+
+    /* === Metric Cards === */
+    .metric-card {{
+        background: white;
+        border-radius: 8px;
+        padding: 1.1rem 1.2rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+        border-left: 3px solid {GREEN};
+        transition: box-shadow 0.2s ease;
+    }}
+    .metric-card:hover {{
+        box-shadow: 0 4px 12px rgba(0,0,0,0.07);
+    }}
+    .metric-value {{
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: {NAVY};
+        font-family: 'Montserrat', sans-serif !important;
+        letter-spacing: -0.03em;
+        line-height: 1.2;
+    }}
+    .metric-label {{
+        font-size: 0.72rem;
+        color: {GRAY};
+        margin-top: 0.25rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }}
+
+    /* === Section Headers === */
+    .stApp h2 {{
+        font-family: 'Montserrat', sans-serif !important;
+        color: {NAVY};
+        font-weight: 600;
+        font-size: 1.15rem;
+        letter-spacing: -0.01em;
+    }}
+    .stApp h3 {{
+        font-family: 'Montserrat', sans-serif !important;
+        color: {NAVY};
+        font-weight: 600;
+        font-size: 1rem;
+    }}
+
+    /* === DataFrames === */
+    .stDataFrame {{
+        border-radius: 8px;
+        overflow: hidden;
+    }}
+    [data-testid="stDataFrame"] {{
+        border: 1px solid rgba(0,0,0,0.06);
+        border-radius: 8px;
+    }}
+
+    /* === Buttons === */
+    .stDownloadButton > button,
+    .stButton > button {{
+        font-family: 'Montserrat', sans-serif !important;
+        font-weight: 500;
+        font-size: 0.82rem;
+        border-radius: 6px;
+        letter-spacing: 0.01em;
+    }}
+    .stDownloadButton > button {{
+        background: {NAVY};
+        color: white;
+        border: none;
+    }}
+    .stDownloadButton > button:hover {{
+        background: {DARK_NAVY};
+    }}
+    button[kind="primary"] {{
+        background: {GREEN} !important;
+        border: none !important;
+    }}
+    button[kind="primary"]:hover {{
+        background: {ACCENT_GREEN} !important;
+    }}
+
+    /* === Inputs === */
+    .stTextInput input, .stNumberInput input {{
+        font-family: 'Montserrat', sans-serif !important;
+        border-radius: 6px;
+        font-size: 0.85rem;
+    }}
+    .stSelectbox > div > div,
+    .stMultiSelect > div > div {{
+        border-radius: 6px;
+    }}
+    .stTextInput label, .stNumberInput label, .stSelectbox label, .stMultiSelect label {{
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: {NAVY};
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }}
+
+    /* === Metrics (Streamlit native) === */
+    [data-testid="stMetric"] {{
+        background: white;
+        padding: 0.8rem 1rem;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        border-left: 3px solid {GREEN};
+    }}
+    [data-testid="stMetricLabel"] {{
+        font-size: 0.72rem !important;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-weight: 500;
+    }}
+    [data-testid="stMetricValue"] {{
+        font-family: 'Montserrat', sans-serif !important;
+        font-weight: 700;
+        color: {NAVY};
+    }}
+
+    /* === Dividers === */
+    hr {{
+        border: none;
+        border-top: 1px solid rgba(0,0,0,0.06);
+        margin: 1.5rem 0;
+    }}
+
+    /* === Expanders === */
+    .streamlit-expanderHeader {{
+        font-family: 'Montserrat', sans-serif !important;
+        font-weight: 500;
+        font-size: 0.88rem;
+    }}
+
+    /* === Sidebar brand mark === */
+    .sidebar-brand {{
+        padding: 0.5rem 0 0.8rem;
+        text-align: center;
+    }}
+    .sidebar-brand h2 {{
+        color: white !important;
+        font-family: 'Montserrat', sans-serif !important;
+        font-weight: 700;
+        font-size: 1rem;
+        letter-spacing: 0.08em;
+        margin: 0;
+    }}
+    .sidebar-brand .brand-sub {{
+        color: rgba(255,255,255,0.4);
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        margin-top: 0.15rem;
+    }}
+    .sidebar-stats {{
+        font-size: 0.75rem;
+        color: rgba(255,255,255,0.5);
+        line-height: 1.7;
+    }}
+    .sidebar-stats strong {{
+        color: rgba(255,255,255,0.75);
+    }}
+
+    /* === Misc === */
+    .stAlert {{
+        border-radius: 8px;
+    }}
+    .stSpinner {{
+        font-family: 'Montserrat', sans-serif !important;
+    }}
+    /* Hide Streamlit branding */
+    footer {{ visibility: hidden; }}
+    #MainMenu {{ visibility: hidden; }}
+</style>
+""", unsafe_allow_html=True)
+
+
+# === DATA ===
+@st.cache_data(ttl=3600)
+def load_positions():
+    cache = DATA_DIR / "positions_enriched.csv"
+    if cache.exists():
+        return pd.read_csv(cache, low_memory=False)
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=3600)
+def load_profiles():
+    cache = DATA_DIR / "investor_profiles.csv"
+    if cache.exists():
+        return pd.read_csv(cache, low_memory=False)
+    positions = load_positions()
+    if not positions.empty:
+        return build_investor_profiles(positions)
+    return pd.DataFrame()
+
+
+def fmt(value):
+    if pd.isna(value) or value == 0:
+        return "—"
+    v = abs(value)
+    if v >= 1e9:
+        return f"R$ {value/1e9:.2f}B"
+    if v >= 1e6:
+        return f"R$ {value/1e6:.1f}M"
+    if v >= 1e3:
+        return f"R$ {value/1e3:.0f}K"
+    return f"R$ {value:,.0f}"
+
+
+# === SIDEBAR ===
+with st.sidebar:
+    st.markdown("""<div class="sidebar-brand">
+        <h2>ZYN CAPITAL</h2>
+        <div class="brand-sub">Sales Intelligence</div>
+    </div>""", unsafe_allow_html=True)
+    st.markdown("---")
+    page = st.radio(
+        "Navegação",
+        [
+            "Visão Geral",
+            "Gestoras",
+            "Fundos & Papéis",
+            "Emissores",
+            "Devedores",
+            "Fundos com Caixa",
+            "Matching",
+            "Base Manual",
+            "Atualizar",
+        ],
+        label_visibility="collapsed",
+    )
+    st.markdown("---")
+    positions = load_positions()
+    if not positions.empty:
+        cache_path = DATA_DIR / "positions_enriched.csv"
+        gestoras = positions["gestora"].nunique() if "gestora" in positions.columns else 0
+        fundos = positions['cnpj_fundo'].nunique()
+        atualizado = datetime.fromtimestamp(cache_path.stat().st_mtime).strftime('%d/%m/%Y') if cache_path.exists() else "—"
+        st.markdown(f"""<div class="sidebar-stats">
+            <strong>{len(positions):,}</strong> posições<br>
+            <strong>{gestoras}</strong> gestoras · <strong>{fundos:,}</strong> fundos<br>
+            Atualizado: <strong>{atualizado}</strong>
+        </div>""", unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown("*ZYN Capital © 2026*")
+
+
+# ══════════════════════════════════════════
+# VISÃO GERAL
+# ══════════════════════════════════════════
+if page == "Visão Geral":
+    st.markdown("""<div class="main-header">
+        <h1>Visão Geral do Mercado</h1>
+        <p>Renda Fixa Estruturada — Dados CVM (últimos meses disponíveis)</p>
+    </div>""", unsafe_allow_html=True)
+
+    positions = load_positions()
+    if positions.empty:
+        st.error("Nenhum dado. Vá em Atualizar.")
+        st.stop()
+
+    c1, c2, c3, c4 = st.columns(4)
+    for col, val, label in [
+        (c1, fmt(positions["vl_posicao"].sum()), "Volume Total"),
+        (c2, f"{positions['cnpj_fundo'].nunique():,}", "Fundos Únicos"),
+        (c3, f"{positions['gestora'].nunique() if 'gestora' in positions.columns else 0}", "Gestoras"),
+        (c4, f"{len(positions):,}", "Posições"),
+    ]:
+        col.markdown(f'<div class="metric-card"><div class="metric-value">{val}</div><div class="metric-label">{label}</div></div>', unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    col_l, col_r = st.columns(2)
+
+    with col_l:
+        st.subheader("Volume por Tipo de Ativo")
+        vt = positions.groupby("tipo_ativo")["vl_posicao"].sum().reset_index()
+        vt.columns = ["Tipo", "Volume"]
+        fig = px.bar(vt.sort_values("Volume"), x="Volume", y="Tipo", orientation="h",
+                     color_discrete_sequence=[GREEN])
+        fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=300,
+                          margin=dict(l=0, r=20, t=10, b=0))
+        fig.update_xaxes(tickformat=",.0s")
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col_r:
+        st.subheader("Fundos por Tipo")
+        ft = positions.groupby("tipo_ativo")["cnpj_fundo"].nunique().reset_index()
+        ft.columns = ["Tipo", "Fundos"]
+        fig2 = px.pie(ft, values="Fundos", names="Tipo", hole=0.4,
+                      color_discrete_sequence=CHART_COLORS)
+        fig2.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=300,
+                           margin=dict(l=0, r=0, t=10, b=0))
+        st.plotly_chart(fig2, use_container_width=True)
+
+    # Top gestoras
+    st.subheader("Top 20 Gestoras por Volume em RF Estruturada")
+    if "gestora" in positions.columns:
+        tg = positions.groupby("gestora")["vl_posicao"].sum().reset_index().sort_values("vl_posicao", ascending=False).head(20)
+        tg.columns = ["Gestora", "Volume"]
+        fig3 = px.bar(tg, x="Gestora", y="Volume", color_discrete_sequence=[NAVY])
+        fig3.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=400,
+                           xaxis_tickangle=-45, margin=dict(l=0, r=20, t=10, b=120))
+        fig3.update_yaxes(tickformat=",.0s")
+        st.plotly_chart(fig3, use_container_width=True)
+
+    # Top emissores
+    st.subheader("Top 20 Emissores por Volume Captado")
+    if "emissor" in positions.columns:
+        te = positions[positions["emissor"].notna()].groupby("emissor").agg(
+            volume=("vl_posicao", "sum"),
+            n_fundos=("cnpj_fundo", "nunique"),
+            n_gestoras=("gestora", "nunique"),
+            tipos=("tipo_ativo", lambda x: ", ".join(sorted(x.unique()))),
+        ).reset_index().sort_values("volume", ascending=False).head(20)
+        te_display = te.copy()
+        te_display["Vol."] = te_display["volume"].apply(fmt)
+        te_display = te_display.rename(columns={"emissor": "Emissor", "n_fundos": "Fundos", "n_gestoras": "Gestoras", "tipos": "Tipos"})
+        fig4 = px.bar(te, x="emissor", y="volume", color_discrete_sequence=[GREEN])
+        fig4.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=400,
+                           xaxis_tickangle=-45, margin=dict(l=0, r=20, t=10, b=120),
+                           xaxis_title="Emissor", yaxis_title="Volume")
+        fig4.update_yaxes(tickformat=",.0s")
+        st.plotly_chart(fig4, use_container_width=True)
+        st.dataframe(te_display[["Emissor", "Vol.", "Fundos", "Gestoras", "Tipos"]], use_container_width=True)
+
+    # Export visão geral
+    st.markdown("---")
+    overview_data = positions.groupby("tipo_ativo").agg(
+        volume=("vl_posicao", "sum"), fundos=("cnpj_fundo", "nunique"),
+        gestoras=("gestora", "nunique"), posicoes=("vl_posicao", "count"),
+    ).reset_index()
+    overview_data.columns = ["Tipo", "Volume", "Fundos", "Gestoras", "Posições"]
+    excel_btn(overview_data, "zyn_visao_geral.xlsx", key="exp_visao")
+
+
+# ══════════════════════════════════════════
+# GESTORAS (com drill-down para fundos)
+# ══════════════════════════════════════════
+elif page == "Gestoras":
+    st.markdown("""<div class="main-header">
+        <h1>Gestoras — Drill-down</h1>
+        <p>Selecione uma gestora para ver seus fundos e posições detalhadas</p>
+    </div>""", unsafe_allow_html=True)
+
+    positions = load_positions()
+    profiles = load_profiles()
+    if positions.empty:
+        st.error("Nenhum dado.")
+        st.stop()
+
+    # Filtros
+    col_f1, col_f2, col_f3 = st.columns(3)
+    with col_f1:
+        tipo_filter = st.multiselect("Tipo de Ativo", ["NC", "CRI", "CRA", "CPR-F", "DEBENTURE"])
+    with col_f2:
+        vol_min = st.number_input("Volume mín. RF (R$ M)", value=0, step=10)
+    with col_f3:
+        search = st.text_input("Buscar gestora", "")
+
+    # Filtra profiles
+    filtered = profiles.copy() if not profiles.empty else pd.DataFrame()
+    if not filtered.empty:
+        if tipo_filter:
+            for t in tipo_filter:
+                c = f"vol_{t}"
+                if c in filtered.columns:
+                    filtered = filtered[filtered[c] > 0]
+        if vol_min > 0:
+            filtered = filtered[filtered["vol_total"] >= vol_min * 1e6]
+        if search:
+            filtered = filtered[filtered["gestora"].str.contains(search, case=False, na=False)]
+
+    st.markdown(f"**{len(filtered)}** gestoras")
+
+    # Tabela resumo
+    if not filtered.empty:
+        display_cols = ["gestora", "n_fundos", "vol_total", "vol_NC", "vol_CRI", "vol_CRA", "vol_CPR-F", "vol_DEBENTURE", "tipo_preferido", "ticket_medio", "indexador_principal"]
+        avail = [c for c in display_cols if c in filtered.columns]
+        tbl = filtered[avail].copy()
+        rename = {"gestora": "Gestora", "n_fundos": "Fundos", "vol_total": "Vol. Total", "vol_NC": "NC", "vol_CRI": "CRI", "vol_CRA": "CRA", "vol_CPR-F": "CPR-F", "vol_DEBENTURE": "Debênture", "tipo_preferido": "Pref.", "ticket_medio": "Ticket Médio", "indexador_principal": "Indexador"}
+        tbl = tbl.rename(columns={k: v for k, v in rename.items() if k in tbl.columns})
+        # Keep raw for export
+        tbl_export = tbl.copy()
+        for c in ["Vol. Total", "NC", "CRI", "CRA", "CPR-F", "Debênture", "Ticket Médio"]:
+            if c in tbl.columns:
+                tbl[c] = tbl[c].apply(fmt)
+        st.dataframe(tbl.head(100), use_container_width=True, height=350)
+        excel_btn(tbl_export, "zyn_gestoras.xlsx", key="exp_gestoras")
+
+    # === DRILL-DOWN: Selecionar gestora ===
+    st.markdown("---")
+    st.subheader("🔍 Drill-down — Fundos da Gestora")
+
+    gestora_list = filtered["gestora"].dropna().tolist() if not filtered.empty else positions["gestora"].dropna().unique().tolist()
+    selected_gestora = st.selectbox("Selecione a gestora", [""] + sorted(gestora_list))
+
+    if selected_gestora:
+        g_positions = positions[positions["gestora"] == selected_gestora]
+
+        # KPIs da gestora
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Fundos", g_positions["cnpj_fundo"].nunique())
+        c2.metric("Volume Total RF", fmt(g_positions["vl_posicao"].sum()))
+        c3.metric("Posições", len(g_positions))
+        c4.metric("Ticket Médio", fmt(g_positions["vl_posicao"].mean()))
+
+        # Lista de fundos
+        st.markdown("#### Fundos desta gestora")
+        fundos = (
+            g_positions.groupby(["cnpj_fundo", "nome_fundo"])
+            .agg(
+                volume=("vl_posicao", "sum"),
+                n_posicoes=("vl_posicao", "count"),
+                tipos=("tipo_ativo", lambda x: ", ".join(sorted(x.unique()))),
+                pl=("pl_fundo", "first"),
+                classe=("classe_anbima", "first"),
+            )
+            .reset_index()
+            .sort_values("volume", ascending=False)
+        )
+
+        fundos_display = fundos.copy()
+        fundos_display["Volume RF"] = fundos_display["volume"].apply(fmt)
+        fundos_display["PL"] = fundos_display["pl"].apply(lambda x: fmt(x) if pd.notna(x) else "—")
+        fundos_display = fundos_display.rename(columns={
+            "cnpj_fundo": "CNPJ", "nome_fundo": "Fundo", "n_posicoes": "Posições",
+            "tipos": "Tipos Comprados", "classe": "Classe ANBIMA",
+        })
+        fundos_show = fundos_display[["CNPJ", "Fundo", "Volume RF", "Posições", "Tipos Comprados", "PL", "Classe ANBIMA"]]
+        st.dataframe(fundos_show, use_container_width=True, height=300)
+        excel_btn(fundos_show, f"zyn_fundos_{selected_gestora[:30]}.xlsx", key="exp_fundos_gestora")
+
+        # === DRILL-DOWN: Selecionar fundo ===
+        st.markdown("---")
+        st.subheader("📄 Papéis comprados pelo fundo")
+
+        fundo_options = fundos["nome_fundo"].tolist()
+        selected_fundo = st.selectbox("Selecione o fundo", [""] + fundo_options)
+
+        if selected_fundo:
+            f_positions = g_positions[g_positions["nome_fundo"] == selected_fundo].copy()
+
+            # KPIs completos do fundo
+            c1, c2, c3, c4, c5 = st.columns(5)
+            c1.metric("Volume RF Estruturada", fmt(f_positions["vl_posicao"].sum()))
+            c2.metric("Nº Papéis", len(f_positions))
+            cnpj_f = f_positions["cnpj_fundo"].iloc[0]
+            c3.metric("CNPJ", cnpj_f)
+            pl_val = f_positions["pl_fundo"].iloc[0] if "pl_fundo" in f_positions.columns and pd.notna(f_positions["pl_fundo"].iloc[0]) else None
+            c4.metric("PL Fundo", fmt(pl_val) if pl_val else "—")
+            classe_val = f_positions["classe_anbima"].iloc[0] if "classe_anbima" in f_positions.columns and pd.notna(f_positions["classe_anbima"].iloc[0]) else "—"
+            c5.metric("Classe", str(classe_val)[:25])
+
+            # Info extra do fundo
+            info_cols = st.columns(3)
+            admin_val = f_positions["administrador"].iloc[0] if "administrador" in f_positions.columns and pd.notna(f_positions["administrador"].iloc[0]) else "—"
+            info_cols[0].markdown(f"**Administrador**: {admin_val}")
+            pub_val = f_positions["publico_alvo"].iloc[0] if "publico_alvo" in f_positions.columns and pd.notna(f_positions["publico_alvo"].iloc[0]) else "—"
+            info_cols[1].markdown(f"**Público Alvo**: {pub_val}")
+            tipos_fundo = ", ".join(sorted(f_positions["tipo_ativo"].unique()))
+            info_cols[2].markdown(f"**Tipos**: {tipos_fundo}")
+
+            # Charts lado a lado: por tipo e por indexador
+            if len(f_positions["tipo_ativo"].unique()) > 1 or ("indexador" in f_positions.columns and f_positions["indexador"].notna().any()):
+                ch1, ch2 = st.columns(2)
+                with ch1:
+                    by_type = f_positions.groupby("tipo_ativo")["vl_posicao"].sum().reset_index()
+                    by_type.columns = ["Tipo", "Volume"]
+                    fig = px.pie(by_type, values="Volume", names="Tipo", hole=0.4,
+                                 color_discrete_sequence=CHART_COLORS)
+                    fig.update_layout(height=220, margin=dict(l=0, r=0, t=20, b=0), title_text="Volume por Tipo")
+                    st.plotly_chart(fig, use_container_width=True)
+                with ch2:
+                    if "indexador" in f_positions.columns and f_positions["indexador"].notna().any():
+                        by_idx = f_positions[f_positions["indexador"].notna()].groupby("indexador")["vl_posicao"].sum().reset_index()
+                        by_idx.columns = ["Indexador", "Volume"]
+                        fig2 = px.pie(by_idx, values="Volume", names="Indexador", hole=0.4,
+                                      color_discrete_sequence=CHART_COLORS)
+                        fig2.update_layout(height=220, margin=dict(l=0, r=0, t=20, b=0), title_text="Volume por Indexador")
+                        st.plotly_chart(fig2, use_container_width=True)
+
+            # Tabela completa de papéis com TODAS as informações
+            st.markdown("#### Todos os papéis neste fundo")
+            paper_cols = {
+                "tipo_ativo": "Tipo",
+                "tp_ativo": "Subtipo",
+                "tp_aplicacao": "Aplicação",
+                "devedor": "Devedor",
+                "ticker_devedor": "Ticker",
+                "emissor": "Emissor/Securitizadora",
+                "cnpj_emissor": "CNPJ Emissor",
+                "cd_ativo": "Código B3",
+                "descricao_ativo": "Descrição",
+                "isin": "ISIN",
+                "vl_posicao": "Valor Posição",
+                "vl_custo": "Valor Custo",
+                "qt_posicao": "Quantidade",
+                "dt_vencimento": "Vencimento",
+                "indexador": "Indexador",
+                "pct_indexador": "% Indexador",
+                "spread": "Spread",
+                "taxa_pre": "Taxa Pré",
+                "bloco": "Bloco CDA",
+                "dt_competencia": "Competência",
+            }
+            avail_cols = {k: v for k, v in paper_cols.items() if k in f_positions.columns}
+            papers = f_positions[list(avail_cols.keys())].rename(columns=avail_cols).copy()
+
+            # Formata
+            if "Valor Posição" in papers.columns:
+                papers["Valor Posição"] = papers["Valor Posição"].apply(fmt)
+            if "Valor Custo" in papers.columns:
+                papers["Valor Custo"] = papers["Valor Custo"].apply(lambda x: fmt(x) if pd.notna(x) else "—")
+            if "Spread" in papers.columns:
+                papers["Spread"] = papers["Spread"].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0 else "—")
+            if "Taxa Pré" in papers.columns:
+                papers["Taxa Pré"] = papers["Taxa Pré"].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0 else "—")
+            if "% Indexador" in papers.columns:
+                papers["% Indexador"] = papers["% Indexador"].apply(lambda x: f"{x:.0f}%" if pd.notna(x) and x != 0 else "—")
+
+            st.dataframe(papers, use_container_width=True, height=450)
+            excel_btn(papers, f"zyn_papeis_{selected_fundo[:30]}.xlsx", key="exp_papeis_gestora")
+
+            # Emissores deste fundo
+            if "Emissor" in papers.columns:
+                st.markdown("#### 🏭 Emissores neste fundo")
+                em_fundo = f_positions[f_positions["emissor"].notna()].groupby(["emissor", "cnpj_emissor"]).agg(
+                    volume=("vl_posicao", "sum"), papeis=("vl_posicao", "count"),
+                    tipos=("tipo_ativo", lambda x: ", ".join(sorted(x.unique()))),
+                    vencimento_max=("dt_vencimento", safe_max),
+                ).reset_index().sort_values("volume", ascending=False)
+                em_fundo_disp = em_fundo.copy()
+                em_fundo_disp["Vol."] = em_fundo_disp["volume"].apply(fmt)
+                em_fundo_disp = em_fundo_disp.rename(columns={
+                    "emissor": "Emissor", "cnpj_emissor": "CNPJ Emissor",
+                    "papeis": "Papéis", "tipos": "Tipos", "vencimento_max": "Venc. Máx",
+                })
+                st.dataframe(em_fundo_disp[["Emissor", "CNPJ Emissor", "Vol.", "Papéis", "Tipos", "Venc. Máx"]], use_container_width=True)
+
+            # Chart de posições por tipo
+            by_type = f_positions.groupby("tipo_ativo")["vl_posicao"].sum().reset_index()
+            by_type.columns = ["Tipo", "Volume"]
+            if len(by_type) > 1:
+                fig = px.pie(by_type, values="Volume", names="Tipo", hole=0.4,
+                             color_discrete_sequence=CHART_COLORS)
+                fig.update_layout(height=250, margin=dict(l=0, r=0, t=20, b=0))
+                st.plotly_chart(fig, use_container_width=True)
+
+
+# ══════════════════════════════════════════
+# FUNDOS & PAPÉIS (busca direta)
+# ══════════════════════════════════════════
+elif page == "Fundos & Papéis":
+    st.markdown("""<div class="main-header">
+        <h1>Fundos & Papéis</h1>
+        <p>Busque qualquer fundo ou emissor — veja cada papel comprado</p>
+    </div>""", unsafe_allow_html=True)
+
+    positions = load_positions()
+    if positions.empty:
+        st.error("Nenhum dado.")
+        st.stop()
+
+    # Filtros
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        tipo_f = st.multiselect("Tipo de Ativo", ["NC", "CRI", "CRA", "CPR-F", "DEBENTURE"], key="fp_tipo")
+    with col2:
+        busca_fundo = st.text_input("Buscar fundo (nome)", "", key="fp_fundo")
+    with col3:
+        busca_emissor = st.text_input("Buscar emissor", "", key="fp_emissor")
+    with col4:
+        busca_isin = st.text_input("Buscar ISIN", "", key="fp_isin")
+
+    filtered = positions.copy()
+    if tipo_f:
+        filtered = filtered[filtered["tipo_ativo"].isin(tipo_f)]
+    if busca_fundo:
+        filtered = filtered[filtered["nome_fundo"].str.contains(busca_fundo, case=False, na=False)]
+    if busca_emissor and "emissor" in filtered.columns:
+        filtered = filtered[filtered["emissor"].str.contains(busca_emissor, case=False, na=False)]
+    if busca_isin and "isin" in filtered.columns:
+        filtered = filtered[filtered["isin"].str.contains(busca_isin, case=False, na=False)]
+
+    st.markdown(f"**{len(filtered):,}** posições encontradas | **{filtered['cnpj_fundo'].nunique()}** fundos")
+
+    # Agregado por fundo
+    st.subheader("Fundos")
+    fundos_agg = (
+        filtered.groupby(["cnpj_fundo", "nome_fundo", "gestora"])
+        .agg(
+            volume=("vl_posicao", "sum"),
+            n_papeis=("vl_posicao", "count"),
+            tipos=("tipo_ativo", lambda x: ", ".join(sorted(x.unique()))),
+            classe=("classe_anbima", "first"),
+            pl=("pl_fundo", "first"),
+        )
+        .reset_index()
+        .sort_values("volume", ascending=False)
+    )
+
+    fundos_tbl = fundos_agg.head(200).copy()
+    fundos_tbl["Vol. RF"] = fundos_tbl["volume"].apply(fmt)
+    fundos_tbl["PL"] = fundos_tbl["pl"].apply(lambda x: fmt(x) if pd.notna(x) else "—")
+    fundos_tbl = fundos_tbl.rename(columns={
+        "cnpj_fundo": "CNPJ", "nome_fundo": "Fundo", "gestora": "Gestora",
+        "n_papeis": "Papéis", "tipos": "Tipos", "classe": "Classe",
+    })
+    fundos_show = fundos_tbl[["CNPJ", "Fundo", "Gestora", "Vol. RF", "Papéis", "Tipos", "PL", "Classe"]]
+    st.dataframe(fundos_show, use_container_width=True, height=350)
+    excel_btn(fundos_show, "zyn_fundos_busca.xlsx", key="exp_fundos_busca")
+
+    # Drill-down nos papéis
+    st.markdown("---")
+    st.subheader("📄 Detalhes dos papéis")
+
+    fundo_sel = st.selectbox("Selecione o fundo para ver papéis", [""] + fundos_agg["nome_fundo"].head(200).tolist(), key="fp_sel")
+
+    if fundo_sel:
+        f_pos = filtered[filtered["nome_fundo"] == fundo_sel].copy()
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Volume", fmt(f_pos["vl_posicao"].sum()))
+        c2.metric("Papéis", len(f_pos))
+        c3.metric("Gestora", f_pos["gestora"].iloc[0] if "gestora" in f_pos.columns else "—")
+        c4.metric("Classe", f_pos["classe_anbima"].iloc[0] if "classe_anbima" in f_pos.columns and pd.notna(f_pos["classe_anbima"].iloc[0]) else "—")
+
+        # Tabela completa de papéis
+        display_order = ["tipo_ativo", "devedor", "ticker_devedor", "emissor", "cd_ativo", "descricao_ativo", "isin", "vl_posicao", "qt_posicao",
+                         "dt_vencimento", "indexador", "pct_indexador", "spread", "taxa_pre", "cnpj_emissor", "dt_competencia"]
+        avail = [c for c in display_order if c in f_pos.columns]
+        papers = f_pos[avail].copy()
+        col_names = {
+            "tipo_ativo": "Tipo", "devedor": "Devedor", "ticker_devedor": "Ticker",
+            "emissor": "Emissor", "cd_ativo": "Código B3",
+            "descricao_ativo": "Descrição",
+            "isin": "ISIN", "vl_posicao": "Valor", "qt_posicao": "Qtd",
+            "dt_vencimento": "Vencimento", "indexador": "Indexador",
+            "pct_indexador": "% Idx", "spread": "Spread", "taxa_pre": "Taxa Pré",
+            "cnpj_emissor": "CNPJ Emissor", "dt_competencia": "Competência",
+        }
+        papers = papers.rename(columns={k: v for k, v in col_names.items() if k in papers.columns})
+
+        if "Valor" in papers.columns:
+            papers["Valor"] = papers["Valor"].apply(fmt)
+        if "Spread" in papers.columns:
+            papers["Spread"] = papers["Spread"].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0 else "—")
+        if "Taxa Pré" in papers.columns:
+            papers["Taxa Pré"] = papers["Taxa Pré"].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0 else "—")
+        if "% Idx" in papers.columns:
+            papers["% Idx"] = papers["% Idx"].apply(lambda x: f"{x:.0f}%" if pd.notna(x) and x != 0 else "—")
+
+        st.dataframe(papers, use_container_width=True, height=400)
+        excel_btn(papers, f"zyn_papeis_{fundo_sel[:30]}.xlsx", key="exp_papeis_busca")
+
+        # Emissores deste fundo
+        if "emissor" in f_pos.columns:
+            st.markdown("#### 🏭 Emissores neste fundo")
+            em_f = f_pos[f_pos["emissor"].notna()].groupby(["emissor", "cnpj_emissor"]).agg(
+                volume=("vl_posicao", "sum"), papeis=("vl_posicao", "count"),
+                tipos=("tipo_ativo", lambda x: ", ".join(sorted(x.unique()))),
+                vencimento_max=("dt_vencimento", safe_max),
+                indexadores=("indexador", lambda x: ", ".join(sorted(x.dropna().unique())) if x.notna().any() else "—"),
+            ).reset_index().sort_values("volume", ascending=False)
+            em_f_disp = em_f.copy()
+            em_f_disp["Vol."] = em_f_disp["volume"].apply(fmt)
+            em_f_disp = em_f_disp.rename(columns={
+                "emissor": "Emissor", "cnpj_emissor": "CNPJ Emissor",
+                "papeis": "Papéis", "tipos": "Tipos", "vencimento_max": "Venc. Máx",
+                "indexadores": "Indexadores",
+            })
+            st.dataframe(em_f_disp[["Emissor", "CNPJ Emissor", "Vol.", "Papéis", "Tipos", "Indexadores", "Venc. Máx"]], use_container_width=True)
+
+    # Mapa de emissores — completo
+    st.markdown("---")
+    st.subheader("🏭 Análise de Emissores")
+
+    if "emissor" in filtered.columns:
+        busca_em = st.text_input("Buscar emissor", "", key="fp_em_busca")
+
+        em_base = filtered[filtered["emissor"].notna()]
+        if busca_em:
+            em_base = em_base[em_base["emissor"].str.contains(busca_em, case=False, na=False)]
+
+        emissores = (
+            em_base
+            .groupby(["emissor", "cnpj_emissor"])
+            .agg(
+                volume=("vl_posicao", "sum"),
+                n_fundos=("cnpj_fundo", "nunique"),
+                n_gestoras=("gestora", "nunique"),
+                n_posicoes=("vl_posicao", "count"),
+                ticket_medio=("vl_posicao", "mean"),
+                tipos=("tipo_ativo", lambda x: ", ".join(sorted(x.unique()))),
+                indexadores=("indexador", lambda x: ", ".join(sorted(x.dropna().unique())) if x.notna().any() else "—"),
+                vencimento_min=("dt_vencimento", safe_min),
+                vencimento_max=("dt_vencimento", safe_max),
+            )
+            .reset_index()
+            .sort_values("volume", ascending=False)
+        )
+
+        st.markdown(f"**{len(emissores)}** emissores encontrados")
+
+        em_disp = emissores.head(100).copy()
+        em_export = em_disp.copy()
+        em_disp["Volume"] = em_disp["volume"].apply(fmt)
+        em_disp["Ticket Médio"] = em_disp["ticket_medio"].apply(fmt)
+        em_disp = em_disp.rename(columns={
+            "emissor": "Emissor", "cnpj_emissor": "CNPJ", "n_fundos": "Fundos",
+            "n_gestoras": "Gestoras", "n_posicoes": "Posições", "tipos": "Tipos",
+            "indexadores": "Indexadores", "vencimento_min": "Venc. Mín", "vencimento_max": "Venc. Máx",
+        })
+        st.dataframe(em_disp[["Emissor", "CNPJ", "Volume", "Ticket Médio", "Fundos", "Gestoras", "Posições", "Tipos", "Indexadores", "Venc. Mín", "Venc. Máx"]], use_container_width=True, height=400)
+        em_export_renamed = em_export.rename(columns={
+            "emissor": "Emissor", "cnpj_emissor": "CNPJ", "volume": "Volume",
+            "ticket_medio": "Ticket Médio", "n_fundos": "Fundos", "n_gestoras": "Gestoras",
+            "n_posicoes": "Posições", "tipos": "Tipos", "indexadores": "Indexadores",
+            "vencimento_min": "Venc. Mín", "vencimento_max": "Venc. Máx",
+        })
+        excel_btn(em_export_renamed, "zyn_emissores.xlsx", key="exp_emissores")
+
+        # Chart top emissores
+        top_em = emissores.head(15)
+        fig_em = px.bar(top_em, x="emissor", y="volume", color="n_gestoras",
+                        color_continuous_scale=["#E0E0E0", GREEN],
+                        labels={"emissor": "Emissor", "volume": "Volume", "n_gestoras": "Nº Gestoras"})
+        fig_em.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=400,
+                             xaxis_tickangle=-45, margin=dict(l=0, r=20, t=10, b=120))
+        fig_em.update_yaxes(tickformat=",.0s")
+        st.plotly_chart(fig_em, use_container_width=True)
+
+        # Drill-down: selecionar emissor
+        st.markdown("---")
+        st.subheader("🔍 Drill-down — Quem comprou este emissor?")
+        em_list = emissores["emissor"].head(200).tolist()
+        sel_emissor = st.selectbox("Selecione o emissor", [""] + em_list, key="fp_em_sel")
+
+        if sel_emissor:
+            em_pos = em_base[em_base["emissor"] == sel_emissor]
+            cnpj_em = em_pos["cnpj_emissor"].iloc[0] if "cnpj_emissor" in em_pos.columns else "—"
+
+            c1, c2, c3, c4, c5 = st.columns(5)
+            c1.metric("Volume Total", fmt(em_pos["vl_posicao"].sum()))
+            c2.metric("Fundos", em_pos["cnpj_fundo"].nunique())
+            c3.metric("Gestoras", em_pos["gestora"].nunique())
+            c4.metric("Papéis", len(em_pos))
+            c5.metric("CNPJ", cnpj_em)
+
+            # Gestoras que compram este emissor
+            st.markdown("##### Gestoras compradoras")
+            gest_em = em_pos.groupby("gestora").agg(
+                volume=("vl_posicao", "sum"), fundos=("cnpj_fundo", "nunique"),
+                papeis=("vl_posicao", "count"),
+                tipos=("tipo_ativo", lambda x: ", ".join(sorted(x.unique()))),
+            ).reset_index().sort_values("volume", ascending=False)
+            gest_em_disp = gest_em.copy()
+            gest_em_disp["Vol."] = gest_em_disp["volume"].apply(fmt)
+            gest_em_disp = gest_em_disp.rename(columns={
+                "gestora": "Gestora", "fundos": "Fundos", "papeis": "Papéis", "tipos": "Tipos",
+            })
+            st.dataframe(gest_em_disp[["Gestora", "Vol.", "Fundos", "Papéis", "Tipos"]], use_container_width=True)
+            excel_btn(gest_em_disp[["Gestora", "Vol.", "Fundos", "Papéis", "Tipos"]], f"zyn_compradores_{sel_emissor[:30]}.xlsx", key="exp_compradores_em")
+
+            # Papéis individuais deste emissor
+            st.markdown("##### Todos os papéis deste emissor")
+            em_papers_cols = ["gestora", "nome_fundo", "tipo_ativo", "devedor", "ticker_devedor", "cd_ativo", "descricao_ativo", "isin",
+                              "vl_posicao", "dt_vencimento", "indexador", "pct_indexador", "spread", "taxa_pre", "dt_competencia"]
+            avail_em = [c for c in em_papers_cols if c in em_pos.columns]
+            em_papers = em_pos[avail_em].copy().sort_values("vl_posicao", ascending=False)
+            em_papers_export = em_papers.copy()
+            if "vl_posicao" in em_papers.columns:
+                em_papers["vl_posicao"] = em_papers["vl_posicao"].apply(fmt)
+            if "spread" in em_papers.columns:
+                em_papers["spread"] = em_papers["spread"].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0 else "—")
+            if "taxa_pre" in em_papers.columns:
+                em_papers["taxa_pre"] = em_papers["taxa_pre"].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0 else "—")
+            if "pct_indexador" in em_papers.columns:
+                em_papers["pct_indexador"] = em_papers["pct_indexador"].apply(lambda x: f"{x:.0f}%" if pd.notna(x) and x != 0 else "—")
+            em_papers = em_papers.rename(columns={
+                "gestora": "Gestora", "nome_fundo": "Fundo", "tipo_ativo": "Tipo",
+                "devedor": "Devedor", "ticker_devedor": "Ticker", "cd_ativo": "Código B3",
+                "descricao_ativo": "Descrição", "isin": "ISIN", "vl_posicao": "Valor",
+                "dt_vencimento": "Vencimento", "indexador": "Indexador",
+                "pct_indexador": "% Idx", "spread": "Spread", "taxa_pre": "Taxa Pré",
+                "dt_competencia": "Competência",
+            })
+            st.dataframe(em_papers, use_container_width=True, height=400)
+            em_papers_export = em_papers_export.rename(columns={
+                "gestora": "Gestora", "nome_fundo": "Fundo", "tipo_ativo": "Tipo",
+                "devedor": "Devedor", "ticker_devedor": "Ticker", "cd_ativo": "Código B3",
+                "descricao_ativo": "Descrição", "isin": "ISIN", "vl_posicao": "Valor",
+                "dt_vencimento": "Vencimento", "indexador": "Indexador",
+                "pct_indexador": "% Idx", "spread": "Spread", "taxa_pre": "Taxa Pré",
+                "dt_competencia": "Competência",
+            })
+            excel_btn(em_papers_export, f"zyn_papeis_emissor_{sel_emissor[:30]}.xlsx", key="exp_papeis_emissor")
+
+
+# ══════════════════════════════════════════
+# EMISSORES (página dedicada)
+# ══════════════════════════════════════════
+elif page == "Emissores":
+    st.markdown("""<div class="main-header">
+        <h1>Análise de Emissores</h1>
+        <p>Mapeamento completo: quem emitiu, quem comprou, volumes, prazos, indexadores</p>
+    </div>""", unsafe_allow_html=True)
+
+    positions = load_positions()
+    if positions.empty or "emissor" not in positions.columns:
+        st.error("Nenhum dado.")
+        st.stop()
+
+    em_base = positions[positions["emissor"].notna()]
+
+    # Filtros
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        tipo_em = st.multiselect("Tipo de Ativo", ["NC", "CRI", "CRA", "CPR-F", "DEBENTURE"], key="em_tipo")
+    with col2:
+        busca_em = st.text_input("Buscar emissor (nome/CNPJ)", "", key="em_busca")
+    with col3:
+        idx_em = st.multiselect("Indexador", sorted(em_base["indexador"].dropna().unique().tolist()), key="em_idx")
+
+    if tipo_em:
+        em_base = em_base[em_base["tipo_ativo"].isin(tipo_em)]
+    if busca_em:
+        em_base = em_base[
+            em_base["emissor"].str.contains(busca_em, case=False, na=False)
+            | em_base["cnpj_emissor"].str.contains(busca_em, case=False, na=False)
+        ]
+    if idx_em:
+        em_base = em_base[em_base["indexador"].isin(idx_em)]
+
+    # KPIs
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.markdown(f'<div class="metric-card"><div class="metric-value">{em_base["emissor"].nunique()}</div><div class="metric-label">Emissores</div></div>', unsafe_allow_html=True)
+    c2.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(em_base["vl_posicao"].sum())}</div><div class="metric-label">Volume Total</div></div>', unsafe_allow_html=True)
+    c3.markdown(f'<div class="metric-card"><div class="metric-value">{em_base["cnpj_fundo"].nunique()}</div><div class="metric-label">Fundos Compradores</div></div>', unsafe_allow_html=True)
+    c4.markdown(f'<div class="metric-card"><div class="metric-value">{em_base["gestora"].nunique()}</div><div class="metric-label">Gestoras</div></div>', unsafe_allow_html=True)
+    c5.markdown(f'<div class="metric-card"><div class="metric-value">{len(em_base):,}</div><div class="metric-label">Posições</div></div>', unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Ranking de emissores
+    emissores_full = em_base.groupby(["emissor", "cnpj_emissor"]).agg(
+        volume=("vl_posicao", "sum"),
+        n_fundos=("cnpj_fundo", "nunique"),
+        n_gestoras=("gestora", "nunique"),
+        n_posicoes=("vl_posicao", "count"),
+        ticket_medio=("vl_posicao", "mean"),
+        tipos=("tipo_ativo", lambda x: ", ".join(sorted(x.unique()))),
+        indexadores=("indexador", lambda x: ", ".join(sorted(x.dropna().unique())) if x.notna().any() else "—"),
+        vencimento_min=("dt_vencimento", safe_min),
+        vencimento_max=("dt_vencimento", safe_max),
+    ).reset_index().sort_values("volume", ascending=False)
+
+    st.subheader(f"Ranking — {len(emissores_full)} emissores")
+
+    # Chart top 20
+    top20 = emissores_full.head(20)
+    fig = px.bar(top20, x="emissor", y="volume", color="n_gestoras",
+                 color_continuous_scale=["#E0E0E0", GREEN],
+                 labels={"emissor": "Emissor", "volume": "Volume", "n_gestoras": "Gestoras"})
+    fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=400,
+                      xaxis_tickangle=-45, margin=dict(l=0, r=20, t=10, b=120))
+    fig.update_yaxes(tickformat=",.0s")
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Tabela completa
+    em_tbl = emissores_full.head(200).copy()
+    em_tbl_export = em_tbl.copy()
+    em_tbl["Vol."] = em_tbl["volume"].apply(fmt)
+    em_tbl["Ticket"] = em_tbl["ticket_medio"].apply(fmt)
+    em_tbl = em_tbl.rename(columns={
+        "emissor": "Emissor", "cnpj_emissor": "CNPJ", "n_fundos": "Fundos",
+        "n_gestoras": "Gestoras", "n_posicoes": "Posições", "tipos": "Tipos",
+        "indexadores": "Indexadores", "vencimento_min": "Venc. Mín", "vencimento_max": "Venc. Máx",
+    })
+    st.dataframe(em_tbl[["Emissor", "CNPJ", "Vol.", "Ticket", "Fundos", "Gestoras", "Posições", "Tipos", "Indexadores", "Venc. Mín", "Venc. Máx"]],
+                 use_container_width=True, height=400)
+    em_tbl_export = em_tbl_export.rename(columns={
+        "emissor": "Emissor", "cnpj_emissor": "CNPJ", "volume": "Volume",
+        "ticket_medio": "Ticket Médio", "n_fundos": "Fundos", "n_gestoras": "Gestoras",
+        "n_posicoes": "Posições", "tipos": "Tipos", "indexadores": "Indexadores",
+        "vencimento_min": "Venc. Mín", "vencimento_max": "Venc. Máx",
+    })
+    excel_btn(em_tbl_export, "zyn_emissores_ranking.xlsx", key="exp_em_ranking")
+
+    # Drill-down
+    st.markdown("---")
+    st.subheader("🔍 Drill-down — Detalhes do Emissor")
+    sel_em = st.selectbox("Selecione o emissor", [""] + emissores_full["emissor"].head(300).tolist(), key="em_drill")
+
+    if sel_em:
+        em_pos = em_base[em_base["emissor"] == sel_em]
+        cnpj_em = em_pos["cnpj_emissor"].iloc[0] if "cnpj_emissor" in em_pos.columns else "—"
+
+        st.markdown(f"**{sel_em}** — CNPJ: `{cnpj_em}`")
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Volume Captado", fmt(em_pos["vl_posicao"].sum()))
+        c2.metric("Fundos Compradores", em_pos["cnpj_fundo"].nunique())
+        c3.metric("Gestoras", em_pos["gestora"].nunique())
+        c4.metric("Nº Emissões", len(em_pos))
+
+        # Volume por tipo de ativo
+        col_l, col_r = st.columns(2)
+        with col_l:
+            st.markdown("##### Volume por Tipo")
+            vol_tipo = em_pos.groupby("tipo_ativo")["vl_posicao"].sum().reset_index()
+            vol_tipo.columns = ["Tipo", "Volume"]
+            fig_t = px.pie(vol_tipo, values="Volume", names="Tipo", hole=0.4,
+                           color_discrete_sequence=CHART_COLORS)
+            fig_t.update_layout(height=250, margin=dict(l=0, r=0, t=20, b=0))
+            st.plotly_chart(fig_t, use_container_width=True)
+
+        with col_r:
+            st.markdown("##### Volume por Indexador")
+            vol_idx = em_pos[em_pos["indexador"].notna()].groupby("indexador")["vl_posicao"].sum().reset_index()
+            vol_idx.columns = ["Indexador", "Volume"]
+            if not vol_idx.empty:
+                fig_i = px.pie(vol_idx, values="Volume", names="Indexador", hole=0.4,
+                               color_discrete_sequence=CHART_COLORS)
+                fig_i.update_layout(height=250, margin=dict(l=0, r=0, t=20, b=0))
+                st.plotly_chart(fig_i, use_container_width=True)
+
+        # Gestoras compradoras
+        st.markdown("##### Gestoras que compraram")
+        gest_comp = em_pos.groupby("gestora").agg(
+            volume=("vl_posicao", "sum"),
+            fundos=("cnpj_fundo", "nunique"),
+            papeis=("vl_posicao", "count"),
+            tipos=("tipo_ativo", lambda x: ", ".join(sorted(x.unique()))),
+        ).reset_index().sort_values("volume", ascending=False)
+        gest_disp = gest_comp.copy()
+        gest_disp["Vol."] = gest_disp["volume"].apply(fmt)
+        gest_disp = gest_disp.rename(columns={
+            "gestora": "Gestora", "fundos": "Fundos", "papeis": "Papéis", "tipos": "Tipos",
+        })
+        st.dataframe(gest_disp[["Gestora", "Vol.", "Fundos", "Papéis", "Tipos"]], use_container_width=True)
+        excel_btn(gest_disp[["Gestora", "Vol.", "Fundos", "Papéis", "Tipos"]],
+                  f"zyn_compradores_{sel_em[:30]}.xlsx", key="exp_gest_emissor")
+
+        # Todos os papéis
+        st.markdown("##### Todos os papéis emitidos")
+        paper_cols = ["gestora", "nome_fundo", "tipo_ativo", "devedor", "ticker_devedor", "cd_ativo", "descricao_ativo", "isin",
+                      "vl_posicao", "vl_custo", "qt_posicao", "dt_vencimento",
+                      "indexador", "pct_indexador", "spread", "taxa_pre", "dt_competencia"]
+        avail = [c for c in paper_cols if c in em_pos.columns]
+        em_papers = em_pos[avail].copy().sort_values("vl_posicao", ascending=False)
+        em_papers_export = em_papers.copy()
+        if "vl_posicao" in em_papers.columns:
+            em_papers["vl_posicao"] = em_papers["vl_posicao"].apply(fmt)
+        if "vl_custo" in em_papers.columns:
+            em_papers["vl_custo"] = em_papers["vl_custo"].apply(lambda x: fmt(x) if pd.notna(x) else "—")
+        if "spread" in em_papers.columns:
+            em_papers["spread"] = em_papers["spread"].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0 else "—")
+        if "taxa_pre" in em_papers.columns:
+            em_papers["taxa_pre"] = em_papers["taxa_pre"].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0 else "—")
+        if "pct_indexador" in em_papers.columns:
+            em_papers["pct_indexador"] = em_papers["pct_indexador"].apply(lambda x: f"{x:.0f}%" if pd.notna(x) and x != 0 else "—")
+        col_rename = {
+            "gestora": "Gestora", "nome_fundo": "Fundo", "tipo_ativo": "Tipo",
+            "devedor": "Devedor", "ticker_devedor": "Ticker", "cd_ativo": "Código B3",
+            "descricao_ativo": "Descrição", "isin": "ISIN", "vl_posicao": "Valor",
+            "vl_custo": "Custo", "qt_posicao": "Qtd", "dt_vencimento": "Vencimento",
+            "indexador": "Indexador", "pct_indexador": "% Idx", "spread": "Spread",
+            "taxa_pre": "Taxa Pré", "dt_competencia": "Competência",
+        }
+        em_papers = em_papers.rename(columns={k: v for k, v in col_rename.items() if k in em_papers.columns})
+        st.dataframe(em_papers, use_container_width=True, height=400)
+        em_papers_export = em_papers_export.rename(columns={k: v for k, v in col_rename.items() if k in em_papers_export.columns})
+        excel_btn(em_papers_export, f"zyn_papeis_{sel_em[:30]}.xlsx", key="exp_papeis_em")
+
+
+# ══════════════════════════════════════════
+# DEVEDORES / CEDENTES / BENEFICIÁRIOS
+# ══════════════════════════════════════════
+elif page == "Devedores":
+    st.markdown("""<div class="main-header">
+        <h1>Devedores / Cedentes / Beneficiários</h1>
+        <p>Mapeamento completo: Instrumento → Devedor → Taxa → Vencimento → Investidor</p>
+    </div>""", unsafe_allow_html=True)
+
+    positions = load_positions()
+    if positions.empty:
+        st.error("Nenhum dado. Vá em Atualizar.")
+        st.stop()
+
+    # Base: posições com devedor identificado
+    dev_base = positions.copy()
+    has_devedor = dev_base["devedor"].notna() if "devedor" in dev_base.columns else pd.Series(False, index=dev_base.index)
+
+    # --- Filtros ---
+    st.markdown("### Filtros")
+    fc1, fc2, fc3, fc4 = st.columns(4)
+    with fc1:
+        dev_tipo_f = st.multiselect("Instrumento", ["NC", "CRI", "CRA", "CPR-F", "DEBENTURE"], key="dev_tipo")
+    with fc2:
+        dev_busca = st.text_input("Buscar devedor (nome/CNPJ)", "", key="dev_busca")
+    with fc3:
+        dev_idx_options = sorted(dev_base["indexador"].dropna().unique().tolist()) if "indexador" in dev_base.columns else []
+        dev_idx_f = st.multiselect("Indexador", dev_idx_options, key="dev_idx")
+    with fc4:
+        dev_gestora_busca = st.text_input("Buscar gestora compradora", "", key="dev_gestora")
+
+    if dev_tipo_f:
+        dev_base = dev_base[dev_base["tipo_ativo"].isin(dev_tipo_f)]
+    if dev_busca and "devedor" in dev_base.columns:
+        dev_base = dev_base[
+            dev_base["devedor"].str.contains(dev_busca, case=False, na=False)
+            | (dev_base["cnpj_emissor"].str.contains(dev_busca, case=False, na=False) if "cnpj_emissor" in dev_base.columns else False)
+        ]
+    if dev_idx_f and "indexador" in dev_base.columns:
+        dev_base = dev_base[dev_base["indexador"].isin(dev_idx_f)]
+    if dev_gestora_busca and "gestora" in dev_base.columns:
+        dev_base = dev_base[dev_base["gestora"].str.contains(dev_gestora_busca, case=False, na=False)]
+
+    # --- KPIs ---
+    st.markdown("<br>", unsafe_allow_html=True)
+    k1, k2, k3, k4, k5, k6 = st.columns(6)
+    n_devedores = dev_base["devedor"].nunique() if "devedor" in dev_base.columns else 0
+    k1.markdown(f'<div class="metric-card"><div class="metric-value">{n_devedores}</div><div class="metric-label">Devedores</div></div>', unsafe_allow_html=True)
+    k2.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(dev_base["vl_posicao"].sum())}</div><div class="metric-label">Volume Total</div></div>', unsafe_allow_html=True)
+    k3.markdown(f'<div class="metric-card"><div class="metric-value">{len(dev_base):,}</div><div class="metric-label">Posições</div></div>', unsafe_allow_html=True)
+    n_tipos = dev_base["tipo_ativo"].nunique()
+    k4.markdown(f'<div class="metric-card"><div class="metric-value">{n_tipos}</div><div class="metric-label">Instrumentos</div></div>', unsafe_allow_html=True)
+    k5.markdown(f'<div class="metric-card"><div class="metric-value">{dev_base["cnpj_fundo"].nunique()}</div><div class="metric-label">Fundos Compradores</div></div>', unsafe_allow_html=True)
+    k6.markdown(f'<div class="metric-card"><div class="metric-value">{dev_base["gestora"].nunique() if "gestora" in dev_base.columns else 0}</div><div class="metric-label">Gestoras</div></div>', unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # --- Ranking de devedores ---
+    if "devedor" in dev_base.columns:
+        dev_with_name = dev_base[dev_base["devedor"].notna()].copy()
+
+        devedores_agg = dev_with_name.groupby("devedor").agg(
+            volume=("vl_posicao", "sum"),
+            n_posicoes=("vl_posicao", "count"),
+            n_fundos=("cnpj_fundo", "nunique"),
+            n_gestoras=("gestora", "nunique"),
+            ticket_medio=("vl_posicao", "mean"),
+            instrumentos=("tipo_ativo", lambda x: ", ".join(sorted(x.unique()))),
+            indexadores=("indexador", lambda x: ", ".join(sorted(x.dropna().unique())) if x.notna().any() else "—"),
+            vencimento_min=("dt_vencimento", safe_min),
+            vencimento_max=("dt_vencimento", safe_max),
+            emissor=("emissor", lambda x: x.dropna().iloc[0] if x.notna().any() else "—"),
+        ).reset_index().sort_values("volume", ascending=False)
+
+        # Top 20 chart
+        st.subheader(f"Ranking — {len(devedores_agg)} devedores")
+        top_dev = devedores_agg.head(20)
+        fig_dev = px.bar(
+            top_dev, x="devedor", y="volume", color="n_gestoras",
+            color_continuous_scale=["#E0E0E0", GREEN],
+            labels={"devedor": "Devedor", "volume": "Volume", "n_gestoras": "Gestoras"},
+        )
+        fig_dev.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=420,
+            xaxis_tickangle=-45, margin=dict(l=0, r=20, t=10, b=140),
+        )
+        fig_dev.update_yaxes(tickformat=",.0s")
+        st.plotly_chart(fig_dev, use_container_width=True)
+
+        # Tabela completa
+        dev_tbl = devedores_agg.head(500).copy()
+        dev_tbl_export = dev_tbl.copy()
+        dev_tbl["Vol."] = dev_tbl["volume"].apply(fmt)
+        dev_tbl["Ticket"] = dev_tbl["ticket_medio"].apply(fmt)
+        dev_tbl = dev_tbl.rename(columns={
+            "devedor": "Devedor", "emissor": "Emissor/Securitizadora",
+            "n_posicoes": "Posições", "n_fundos": "Fundos", "n_gestoras": "Gestoras",
+            "instrumentos": "Instrumentos", "indexadores": "Indexadores",
+            "vencimento_min": "Venc. Mín", "vencimento_max": "Venc. Máx",
+        })
+        st.dataframe(
+            dev_tbl[["Devedor", "Emissor/Securitizadora", "Vol.", "Ticket", "Instrumentos",
+                      "Indexadores", "Fundos", "Gestoras", "Posições", "Venc. Mín", "Venc. Máx"]],
+            use_container_width=True, height=450,
+        )
+        dev_tbl_export = dev_tbl_export.rename(columns={
+            "devedor": "Devedor", "emissor": "Emissor/Securitizadora", "volume": "Volume",
+            "ticket_medio": "Ticket Médio", "n_posicoes": "Posições", "n_fundos": "Fundos",
+            "n_gestoras": "Gestoras", "instrumentos": "Instrumentos", "indexadores": "Indexadores",
+            "vencimento_min": "Venc. Mín", "vencimento_max": "Venc. Máx",
+        })
+        excel_btn(dev_tbl_export, "zyn_devedores_ranking.xlsx", key="exp_dev_ranking")
+
+        # --- DRILL-DOWN: Selecionar devedor ---
+        st.markdown("---")
+        st.subheader("🔍 Drill-down — Detalhes do Devedor")
+        dev_list = devedores_agg["devedor"].head(500).tolist()
+        sel_dev = st.selectbox("Selecione o devedor", [""] + dev_list, key="dev_drill")
+
+        if sel_dev:
+            dev_pos = dev_with_name[dev_with_name["devedor"] == sel_dev]
+
+            st.markdown(f"### {sel_dev}")
+            d1, d2, d3, d4, d5 = st.columns(5)
+            d1.metric("Volume Total", fmt(dev_pos["vl_posicao"].sum()))
+            d2.metric("Fundos Compradores", dev_pos["cnpj_fundo"].nunique())
+            d3.metric("Gestoras", dev_pos["gestora"].nunique() if "gestora" in dev_pos.columns else 0)
+            d4.metric("Posições", len(dev_pos))
+            tipos_dev = ", ".join(sorted(dev_pos["tipo_ativo"].unique()))
+            d5.metric("Instrumentos", tipos_dev)
+
+            # Charts: volume por instrumento e por indexador
+            chart_l, chart_r = st.columns(2)
+            with chart_l:
+                st.markdown("##### Volume por Instrumento")
+                vol_instr = dev_pos.groupby("tipo_ativo")["vl_posicao"].sum().reset_index()
+                vol_instr.columns = ["Instrumento", "Volume"]
+                fig_vi = px.pie(vol_instr, values="Volume", names="Instrumento", hole=0.4,
+                                color_discrete_sequence=CHART_COLORS)
+                fig_vi.update_layout(height=260, margin=dict(l=0, r=0, t=20, b=0))
+                st.plotly_chart(fig_vi, use_container_width=True)
+
+            with chart_r:
+                st.markdown("##### Volume por Indexador")
+                if "indexador" in dev_pos.columns and dev_pos["indexador"].notna().any():
+                    vol_ix = dev_pos[dev_pos["indexador"].notna()].groupby("indexador")["vl_posicao"].sum().reset_index()
+                    vol_ix.columns = ["Indexador", "Volume"]
+                    fig_ix = px.pie(vol_ix, values="Volume", names="Indexador", hole=0.4,
+                                    color_discrete_sequence=CHART_COLORS)
+                    fig_ix.update_layout(height=260, margin=dict(l=0, r=0, t=20, b=0))
+                    st.plotly_chart(fig_ix, use_container_width=True)
+                else:
+                    st.info("Sem dados de indexador.")
+
+            # Tabela: quem comprou este devedor
+            st.markdown("##### Gestoras / Fundos que compraram este devedor")
+            compradores = dev_pos.groupby(["gestora", "nome_fundo", "cnpj_fundo"]).agg(
+                volume=("vl_posicao", "sum"),
+                n_papeis=("vl_posicao", "count"),
+                tipos=("tipo_ativo", lambda x: ", ".join(sorted(x.unique()))),
+                indexadores=("indexador", lambda x: ", ".join(sorted(x.dropna().unique())) if x.notna().any() else "—"),
+                vencimento_max=("dt_vencimento", safe_max),
+            ).reset_index().sort_values("volume", ascending=False)
+            comp_disp = compradores.copy()
+            comp_disp["Vol."] = comp_disp["volume"].apply(fmt)
+            comp_disp = comp_disp.rename(columns={
+                "gestora": "Gestora", "nome_fundo": "Fundo", "cnpj_fundo": "CNPJ Fundo",
+                "n_papeis": "Papéis", "tipos": "Instrumentos", "indexadores": "Indexadores",
+                "vencimento_max": "Venc. Máx",
+            })
+            st.dataframe(
+                comp_disp[["Gestora", "Fundo", "CNPJ Fundo", "Vol.", "Papéis", "Instrumentos", "Indexadores", "Venc. Máx"]],
+                use_container_width=True, height=350,
+            )
+            excel_btn(comp_disp, f"zyn_compradores_devedor_{sel_dev[:30]}.xlsx", key="exp_comp_dev")
+
+            # Tabela: todos os papéis deste devedor
+            st.markdown("##### Todos os papéis — Instrumento / Taxa / Vencimento / Investidor")
+            paper_cols_dev = [
+                "tipo_ativo", "emissor", "cnpj_emissor", "descricao_ativo", "isin", "cd_ativo",
+                "vl_posicao", "dt_vencimento", "indexador", "pct_indexador", "spread", "taxa_pre",
+                "gestora", "nome_fundo", "cnpj_fundo", "dt_competencia",
+            ]
+            avail_dev = [c for c in paper_cols_dev if c in dev_pos.columns]
+            dev_papers = dev_pos[avail_dev].copy().sort_values("vl_posicao", ascending=False)
+            dev_papers_export = dev_papers.copy()
+
+            # Formatação
+            if "vl_posicao" in dev_papers.columns:
+                dev_papers["vl_posicao"] = dev_papers["vl_posicao"].apply(fmt)
+            if "spread" in dev_papers.columns:
+                dev_papers["spread"] = dev_papers["spread"].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0 else "—")
+            if "taxa_pre" in dev_papers.columns:
+                dev_papers["taxa_pre"] = dev_papers["taxa_pre"].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0 else "—")
+            if "pct_indexador" in dev_papers.columns:
+                dev_papers["pct_indexador"] = dev_papers["pct_indexador"].apply(lambda x: f"{x:.0f}%" if pd.notna(x) and x != 0 else "—")
+
+            col_rename_dev = {
+                "tipo_ativo": "Instrumento", "emissor": "Emissor/Securitizadora",
+                "cnpj_emissor": "CNPJ Emissor", "descricao_ativo": "Descrição",
+                "isin": "ISIN", "cd_ativo": "Código B3", "vl_posicao": "Valor",
+                "dt_vencimento": "Vencimento", "indexador": "Indexador",
+                "pct_indexador": "% Idx", "spread": "Spread", "taxa_pre": "Taxa Pré",
+                "gestora": "Gestora", "nome_fundo": "Fundo", "cnpj_fundo": "CNPJ Fundo",
+                "dt_competencia": "Competência",
+            }
+            dev_papers = dev_papers.rename(columns={k: v for k, v in col_rename_dev.items() if k in dev_papers.columns})
+            st.dataframe(dev_papers, use_container_width=True, height=450)
+            dev_papers_export = dev_papers_export.rename(columns={k: v for k, v in col_rename_dev.items() if k in dev_papers_export.columns})
+            excel_btn(dev_papers_export, f"zyn_papeis_devedor_{sel_dev[:30]}.xlsx", key="exp_papeis_dev")
+
+            # Timeline de vencimentos
+            if "dt_vencimento" in dev_pos.columns and dev_pos["dt_vencimento"].notna().any():
+                st.markdown("##### Timeline de Vencimentos")
+                timeline = dev_pos[dev_pos["dt_vencimento"].notna()].copy()
+                timeline["dt_vencimento"] = pd.to_datetime(timeline["dt_vencimento"], errors="coerce")
+                timeline = timeline[timeline["dt_vencimento"].notna()]
+                if not timeline.empty:
+                    tl_agg = timeline.groupby([pd.Grouper(key="dt_vencimento", freq="Q"), "tipo_ativo"])["vl_posicao"].sum().reset_index()
+                    tl_agg.columns = ["Trimestre", "Instrumento", "Volume"]
+                    fig_tl = px.bar(tl_agg, x="Trimestre", y="Volume", color="Instrumento",
+                                    color_discrete_sequence=CHART_COLORS)
+                    fig_tl.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=300,
+                                         margin=dict(l=0, r=20, t=10, b=0))
+                    fig_tl.update_yaxes(tickformat=",.0s")
+                    st.plotly_chart(fig_tl, use_container_width=True)
+
+    else:
+        st.info("Coluna 'devedor' não encontrada. Execute a atualização para enriquecer os dados.")
+
+
+# ══════════════════════════════════════════
+# FUNDOS COM CAIXA
+# ══════════════════════════════════════════
+elif page == "Fundos com Caixa":
+    st.markdown("""<div class="main-header">
+        <h1>Fundos com Caixa Disponível</h1>
+        <p>Fundos com maior capacidade de alocação em RF Estruturada (PL - Alocação atual)</p>
+    </div>""", unsafe_allow_html=True)
+
+    positions = load_positions()
+    if positions.empty:
+        st.error("Nenhum dado.")
+        st.stop()
+
+    # Build fund-level aggregation
+    fundos_raw = positions.groupby(["cnpj_fundo", "nome_fundo", "gestora"]).agg(
+        vol_rf=("vl_posicao", "sum"),
+        pl=("pl_fundo", "first"),
+        n_papeis=("vl_posicao", "count"),
+        tipos=("tipo_ativo", lambda x: ", ".join(sorted(x.unique()))),
+        classe=("classe_anbima", "first"),
+        publico=("publico_alvo", "first"),
+        administrador=("administrador", "first"),
+        n_devedores=("devedor", "nunique"),
+    ).reset_index()
+
+    fundos_raw = fundos_raw[fundos_raw["pl"].notna() & (fundos_raw["pl"] > 0)].copy()
+    fundos_raw["pct_rf"] = (fundos_raw["vol_rf"] / fundos_raw["pl"] * 100).round(1)
+    fundos_raw["caixa"] = fundos_raw["pl"] - fundos_raw["vol_rf"]
+
+    # --- Filtros ---
+    st.markdown("### Filtros")
+    fc1, fc2, fc3, fc4 = st.columns(4)
+    with fc1:
+        caixa_tipo_f = st.multiselect("Tipo de Ativo que compra", ["NC", "CRI", "CRA", "CPR-F", "DEBENTURE"], key="cx_tipo")
+    with fc2:
+        caixa_min = st.number_input("Caixa mínimo (R$ M)", value=10, step=10, key="cx_min")
+    with fc3:
+        caixa_busca = st.text_input("Buscar fundo/gestora", "", key="cx_busca")
+    with fc4:
+        classe_options = sorted(fundos_raw["classe"].dropna().unique().tolist())
+        caixa_classe = st.multiselect("Classe ANBIMA", classe_options, key="cx_classe")
+
+    fundos_f = fundos_raw.copy()
+    if caixa_tipo_f:
+        # Filter funds that buy at least one of the selected types
+        for t in caixa_tipo_f:
+            fundos_f = fundos_f[fundos_f["tipos"].str.contains(t, na=False)]
+    if caixa_min > 0:
+        fundos_f = fundos_f[fundos_f["caixa"] >= caixa_min * 1e6]
+    if caixa_busca:
+        fundos_f = fundos_f[
+            fundos_f["nome_fundo"].str.contains(caixa_busca, case=False, na=False)
+            | fundos_f["gestora"].str.contains(caixa_busca, case=False, na=False)
+        ]
+    if caixa_classe:
+        fundos_f = fundos_f[fundos_f["classe"].isin(caixa_classe)]
+
+    fundos_f = fundos_f.sort_values("caixa", ascending=False)
+
+    # --- KPIs ---
+    st.markdown("<br>", unsafe_allow_html=True)
+    k1, k2, k3, k4 = st.columns(4)
+    k1.markdown(f'<div class="metric-card"><div class="metric-value">{len(fundos_f)}</div><div class="metric-label">Fundos</div></div>', unsafe_allow_html=True)
+    k2.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(fundos_f["caixa"].sum())}</div><div class="metric-label">Caixa Total Disponível</div></div>', unsafe_allow_html=True)
+    k3.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(fundos_f["pl"].sum())}</div><div class="metric-label">PL Total</div></div>', unsafe_allow_html=True)
+    k4.markdown(f'<div class="metric-card"><div class="metric-value">{fundos_f["gestora"].nunique()}</div><div class="metric-label">Gestoras</div></div>', unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # --- Top 20 chart ---
+    st.subheader("Top 20 Fundos com Maior Caixa Disponível")
+    top20_cx = fundos_f.head(20)
+    fig_cx = px.bar(
+        top20_cx, x="nome_fundo", y="caixa",
+        color="pct_rf", color_continuous_scale=["#E0E0E0", GREEN],
+        labels={"nome_fundo": "Fundo", "caixa": "Caixa Disponível", "pct_rf": "% RF"},
+        hover_data=["gestora", "pl", "vol_rf"],
+    )
+    fig_cx.update_layout(
+        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=420,
+        xaxis_tickangle=-45, margin=dict(l=0, r=20, t=10, b=180),
+    )
+    fig_cx.update_yaxes(tickformat=",.0s")
+    st.plotly_chart(fig_cx, use_container_width=True)
+
+    # --- Tabela ---
+    st.subheader(f"Tabela — {len(fundos_f)} fundos")
+    tbl_cx = fundos_f.head(500).copy()
+    tbl_cx_exp = tbl_cx.copy()
+    tbl_cx["Caixa"] = tbl_cx["caixa"].apply(fmt)
+    tbl_cx["PL"] = tbl_cx["pl"].apply(fmt)
+    tbl_cx["Vol. RF"] = tbl_cx["vol_rf"].apply(fmt)
+    tbl_cx["% RF"] = tbl_cx["pct_rf"].apply(lambda x: f"{x:.1f}%")
+    tbl_cx = tbl_cx.rename(columns={
+        "cnpj_fundo": "CNPJ", "nome_fundo": "Fundo", "gestora": "Gestora",
+        "n_papeis": "Papéis", "tipos": "Tipos que Compra", "classe": "Classe ANBIMA",
+        "publico": "Público Alvo", "administrador": "Administrador",
+        "n_devedores": "Devedores",
+    })
+    st.dataframe(
+        tbl_cx[["CNPJ", "Fundo", "Gestora", "Caixa", "PL", "Vol. RF", "% RF",
+                "Tipos que Compra", "Papéis", "Devedores", "Classe ANBIMA", "Público Alvo"]],
+        use_container_width=True, height=450,
+    )
+    tbl_cx_exp = tbl_cx_exp.rename(columns={
+        "cnpj_fundo": "CNPJ", "nome_fundo": "Fundo", "gestora": "Gestora",
+        "vol_rf": "Volume RF", "pl": "PL", "caixa": "Caixa Disponível",
+        "pct_rf": "% Alocado RF", "n_papeis": "Papéis", "tipos": "Tipos que Compra",
+        "classe": "Classe ANBIMA", "publico": "Público Alvo", "administrador": "Administrador",
+        "n_devedores": "Devedores",
+    })
+    excel_btn(tbl_cx_exp, "zyn_fundos_caixa.xlsx", key="exp_fundos_caixa")
+
+    # --- Drill-down ---
+    st.markdown("---")
+    st.subheader("🔍 Drill-down — Carteira do Fundo")
+    fundo_sel_cx = st.selectbox("Selecione o fundo", [""] + fundos_f["nome_fundo"].head(300).tolist(), key="cx_drill")
+
+    if fundo_sel_cx:
+        f_pos = positions[positions["nome_fundo"] == fundo_sel_cx].copy()
+
+        # KPIs
+        dx1, dx2, dx3, dx4, dx5 = st.columns(5)
+        pl_f = f_pos["pl_fundo"].iloc[0] if "pl_fundo" in f_pos.columns and pd.notna(f_pos["pl_fundo"].iloc[0]) else 0
+        vol_f = f_pos["vl_posicao"].sum()
+        caixa_f = pl_f - vol_f if pl_f > 0 else 0
+        dx1.metric("PL", fmt(pl_f))
+        dx2.metric("Volume RF", fmt(vol_f))
+        dx3.metric("Caixa", fmt(caixa_f))
+        dx4.metric("% Alocado", f"{vol_f/pl_f*100:.1f}%" if pl_f > 0 else "—")
+        dx5.metric("Papéis", len(f_pos))
+
+        # Info do fundo
+        info_cx = st.columns(3)
+        g_name = f_pos["gestora"].iloc[0] if "gestora" in f_pos.columns else "—"
+        info_cx[0].markdown(f"**Gestora**: {g_name}")
+        admin = f_pos["administrador"].iloc[0] if "administrador" in f_pos.columns and pd.notna(f_pos["administrador"].iloc[0]) else "—"
+        info_cx[1].markdown(f"**Administrador**: {admin}")
+        classe = f_pos["classe_anbima"].iloc[0] if "classe_anbima" in f_pos.columns and pd.notna(f_pos["classe_anbima"].iloc[0]) else "—"
+        info_cx[2].markdown(f"**Classe**: {classe}")
+
+        # Charts
+        ch1_cx, ch2_cx = st.columns(2)
+        with ch1_cx:
+            by_tipo = f_pos.groupby("tipo_ativo")["vl_posicao"].sum().reset_index()
+            by_tipo.columns = ["Tipo", "Volume"]
+            fig_t = px.pie(by_tipo, values="Volume", names="Tipo", hole=0.4,
+                           color_discrete_sequence=CHART_COLORS)
+            fig_t.update_layout(height=250, margin=dict(l=0, r=0, t=20, b=0), title_text="Composição por Tipo")
+            st.plotly_chart(fig_t, use_container_width=True)
+        with ch2_cx:
+            if "devedor" in f_pos.columns and f_pos["devedor"].notna().any():
+                top_dev = f_pos.groupby("devedor")["vl_posicao"].sum().nlargest(8).reset_index()
+                top_dev.columns = ["Devedor", "Volume"]
+                fig_d = px.bar(top_dev, x="Devedor", y="Volume", color_discrete_sequence=[GREEN])
+                fig_d.update_layout(height=250, margin=dict(l=0, r=20, t=20, b=80), title_text="Top Devedores",
+                                    xaxis_tickangle=-30)
+                fig_d.update_yaxes(tickformat=",.0s")
+                st.plotly_chart(fig_d, use_container_width=True)
+
+        # Todos os papéis
+        st.markdown("##### Todos os papéis do fundo")
+        paper_cols_cx = [
+            "tipo_ativo", "devedor", "ticker_devedor", "emissor", "cnpj_emissor",
+            "cd_ativo", "descricao_ativo", "isin", "vl_posicao", "vl_custo",
+            "qt_posicao", "dt_vencimento", "indexador", "pct_indexador", "spread",
+            "taxa_pre", "bloco", "dt_competencia",
+        ]
+        avail_cx = [c for c in paper_cols_cx if c in f_pos.columns]
+        papers_cx = f_pos[avail_cx].copy().sort_values("vl_posicao", ascending=False)
+        papers_cx_exp = papers_cx.copy()
+        if "vl_posicao" in papers_cx.columns:
+            papers_cx["vl_posicao"] = papers_cx["vl_posicao"].apply(fmt)
+        if "vl_custo" in papers_cx.columns:
+            papers_cx["vl_custo"] = papers_cx["vl_custo"].apply(lambda x: fmt(x) if pd.notna(x) else "—")
+        if "spread" in papers_cx.columns:
+            papers_cx["spread"] = papers_cx["spread"].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0 else "—")
+        if "taxa_pre" in papers_cx.columns:
+            papers_cx["taxa_pre"] = papers_cx["taxa_pre"].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0 else "—")
+        if "pct_indexador" in papers_cx.columns:
+            papers_cx["pct_indexador"] = papers_cx["pct_indexador"].apply(lambda x: f"{x:.0f}%" if pd.notna(x) and x != 0 else "—")
+        col_rename_cx = {
+            "tipo_ativo": "Tipo", "devedor": "Devedor", "ticker_devedor": "Ticker",
+            "emissor": "Emissor", "cnpj_emissor": "CNPJ Emissor",
+            "cd_ativo": "Código B3", "descricao_ativo": "Descrição",
+            "isin": "ISIN", "vl_posicao": "Valor", "vl_custo": "Custo",
+            "qt_posicao": "Qtd", "dt_vencimento": "Vencimento",
+            "indexador": "Indexador", "pct_indexador": "% Idx", "spread": "Spread",
+            "taxa_pre": "Taxa Pré", "bloco": "Bloco", "dt_competencia": "Competência",
+        }
+        papers_cx = papers_cx.rename(columns={k: v for k, v in col_rename_cx.items() if k in papers_cx.columns})
+        st.dataframe(papers_cx, use_container_width=True, height=450)
+        papers_cx_exp = papers_cx_exp.rename(columns={k: v for k, v in col_rename_cx.items() if k in papers_cx_exp.columns})
+        excel_btn(papers_cx_exp, f"zyn_carteira_{fundo_sel_cx[:30]}.xlsx", key="exp_carteira_cx")
+
+    # --- Agrupamento por gestora ---
+    st.markdown("---")
+    st.subheader("Caixa Agregado por Gestora")
+    gest_caixa = fundos_f.groupby("gestora").agg(
+        caixa_total=("caixa", "sum"),
+        pl_total=("pl", "sum"),
+        vol_rf_total=("vol_rf", "sum"),
+        n_fundos=("cnpj_fundo", "nunique"),
+        tipos=("tipos", lambda x: ", ".join(sorted(set(", ".join(x).split(", "))))),
+    ).reset_index().sort_values("caixa_total", ascending=False)
+    gest_caixa["pct_rf"] = (gest_caixa["vol_rf_total"] / gest_caixa["pl_total"] * 100).round(1)
+    gest_cx_disp = gest_caixa.head(100).copy()
+    gest_cx_exp = gest_cx_disp.copy()
+    gest_cx_disp["Caixa"] = gest_cx_disp["caixa_total"].apply(fmt)
+    gest_cx_disp["PL"] = gest_cx_disp["pl_total"].apply(fmt)
+    gest_cx_disp["Vol. RF"] = gest_cx_disp["vol_rf_total"].apply(fmt)
+    gest_cx_disp["% RF"] = gest_cx_disp["pct_rf"].apply(lambda x: f"{x:.1f}%")
+    gest_cx_disp = gest_cx_disp.rename(columns={
+        "gestora": "Gestora", "n_fundos": "Fundos", "tipos": "Tipos que Compra",
+    })
+    st.dataframe(
+        gest_cx_disp[["Gestora", "Caixa", "PL", "Vol. RF", "% RF", "Fundos", "Tipos que Compra"]],
+        use_container_width=True, height=350,
+    )
+    gest_cx_exp = gest_cx_exp.rename(columns={
+        "gestora": "Gestora", "caixa_total": "Caixa", "pl_total": "PL",
+        "vol_rf_total": "Volume RF", "pct_rf": "% Alocado RF",
+        "n_fundos": "Fundos", "tipos": "Tipos que Compra",
+    })
+    excel_btn(gest_cx_exp, "zyn_gestoras_caixa.xlsx", key="exp_gest_caixa")
+
+
+# ══════════════════════════════════════════
+# MATCHING
+# ══════════════════════════════════════════
+elif page == "Matching":
+    st.markdown("""<div class="main-header">
+        <h1>Matching por Operação</h1>
+        <p>Encontre os melhores investidores para cada deal — com drill-down até o fundo</p>
+    </div>""", unsafe_allow_html=True)
+
+    positions = load_positions()
+    profiles = load_profiles()
+    if positions.empty or profiles.empty:
+        st.error("Nenhum dado.")
+        st.stop()
+
+    st.subheader("Parâmetros da Operação")
+    c1, c2, c3, c4 = st.columns(4)
+    deal_tipo = c1.selectbox("Tipo", ["CRA", "CRI", "NC", "CPR-F", "DEBENTURE"])
+    deal_vol = c2.number_input("Volume (R$ M)", value=50, step=10, min_value=1)
+    deal_prazo = c3.number_input("Prazo (anos)", value=3.0, step=0.5, min_value=0.5)
+    deal_idx = c4.selectbox("Indexador", ["CDI", "IPCA", "PRE", "IGP-M"])
+    deal_nome = st.text_input("Nome (opcional)", f"Operação {deal_tipo}")
+
+    run = st.button("🎯 Buscar Investidores", type="primary")
+
+    if run:
+        deal = {"nome": deal_nome, "tipo": deal_tipo, "volume": deal_vol * 1e6,
+                "prazo_anos": deal_prazo, "indexador": deal_idx}
+
+        with st.spinner("Calculando..."):
+            matching = match_deal_to_investors(deal, profiles, top_n=50, min_score=0.2)
+
+        if matching.empty:
+            st.warning("Nenhum investidor encontrado.")
+        else:
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Investidores", len(matching))
+            c2.metric("Score máximo", f"{matching['score_total'].max():.0%}")
+            c3.metric("Score ≥ 70%", len(matching[matching["score_total"] >= 0.7]))
+
+            # Gráfico
+            top30 = matching.head(30)
+            colors = [GREEN if s >= 0.7 else "#E6A817" if s >= 0.5 else GRAY for s in top30["score_total"]]
+            fig = go.Figure(go.Bar(
+                y=top30["gestora"].str[:40], x=top30["score_total"], orientation="h",
+                marker_color=colors, text=[f"{s:.0%}" for s in top30["score_total"]], textposition="outside",
+            ))
+            fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                              height=max(400, len(top30) * 28), yaxis=dict(autorange="reversed"),
+                              xaxis=dict(tickformat=".0%", range=[0, 1.1]),
+                              margin=dict(l=280, r=50, t=10, b=20))
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Tabela
+            display = matching.copy()
+            for c in ["pl_total", "vol_total_rf", "ticket_medio"]:
+                if c in display.columns:
+                    display[c] = display[c].apply(fmt)
+            for c in ["score_total", "score_tipo", "score_volume", "score_prazo", "score_indexador", "score_historico"]:
+                if c in display.columns:
+                    display[c] = display[c].apply(lambda x: f"{x:.0%}")
+            display = display.rename(columns={
+                "gestora": "Gestora", "score_total": "Score", "n_fundos": "Fundos",
+                "pl_total": "PL Total", "vol_total_rf": "Vol. RF", "ticket_medio": "Ticket",
+                "tipo_preferido": "Pref.", "indexador_principal": "Indexador",
+                "score_tipo": "S.Tipo", "score_volume": "S.Vol", "score_prazo": "S.Prazo",
+                "score_indexador": "S.Idx", "score_historico": "S.Hist",
+            })
+            st.dataframe(display, use_container_width=True, height=400)
+            excel_btn(display, f"zyn_matching_{deal_tipo}.xlsx", key="exp_matching")
+
+            # === DRILL-DOWN: ver fundos da gestora selecionada ===
+            st.markdown("---")
+            st.subheader(f"🔍 Fundos que compraram {deal_tipo} — Drill-down")
+
+            gestora_match_list = matching["gestora"].tolist()
+            sel_gestora = st.selectbox("Selecione gestora do ranking", [""] + gestora_match_list, key="match_drill")
+
+            if sel_gestora:
+                g_pos = positions[(positions["gestora"] == sel_gestora) & (positions["tipo_ativo"] == deal_tipo)]
+                if g_pos.empty:
+                    g_pos = positions[positions["gestora"] == sel_gestora]
+
+                fundos_g = (
+                    g_pos.groupby(["cnpj_fundo", "nome_fundo"])
+                    .agg(volume=("vl_posicao", "sum"), n_papeis=("vl_posicao", "count"),
+                         tipos=("tipo_ativo", lambda x: ", ".join(sorted(x.unique()))))
+                    .reset_index().sort_values("volume", ascending=False)
+                )
+                fundos_g["Vol."] = fundos_g["volume"].apply(fmt)
+                st.dataframe(
+                    fundos_g.rename(columns={"cnpj_fundo": "CNPJ", "nome_fundo": "Fundo", "n_papeis": "Papéis", "tipos": "Tipos"})[["CNPJ", "Fundo", "Vol.", "Papéis", "Tipos"]],
+                    use_container_width=True,
+                )
+
+                # Papéis individuais
+                sel_fundo = st.selectbox("Ver papéis do fundo", [""] + fundos_g["nome_fundo"].tolist(), key="match_fundo")
+                if sel_fundo:
+                    f_pos = g_pos[g_pos["nome_fundo"] == sel_fundo]
+                    cols_show = ["tipo_ativo", "devedor", "ticker_devedor", "emissor", "cd_ativo", "descricao_ativo", "isin", "vl_posicao",
+                                 "dt_vencimento", "indexador", "spread", "taxa_pre"]
+                    avail = [c for c in cols_show if c in f_pos.columns]
+                    papers = f_pos[avail].copy()
+                    if "vl_posicao" in papers.columns:
+                        papers["vl_posicao"] = papers["vl_posicao"].apply(fmt)
+                    if "spread" in papers.columns:
+                        papers["spread"] = papers["spread"].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0 else "—")
+                    papers = papers.rename(columns={
+                        "tipo_ativo": "Tipo", "devedor": "Devedor", "ticker_devedor": "Ticker",
+                        "emissor": "Emissor", "cd_ativo": "Código B3",
+                        "descricao_ativo": "Descrição",
+                        "isin": "ISIN", "vl_posicao": "Valor", "dt_vencimento": "Vencimento",
+                        "indexador": "Indexador", "spread": "Spread", "taxa_pre": "Taxa Pré",
+                    })
+                    st.dataframe(papers, use_container_width=True, height=300)
+                    excel_btn(papers, f"zyn_papeis_match_{sel_fundo[:30]}.xlsx", key="exp_papeis_match")
+
+            # FOs manuais
+            fo = search_by_appetite(deal_tipo)
+            if fo:
+                st.markdown("---")
+                st.subheader(f"🏦 Base Manual — Apetite para {deal_tipo}")
+                fo_cols = ["nome", "tipo", "ticket_min", "ticket_max", "indexador_pref", "notas"]
+                fo_df = pd.DataFrame(fo)
+                fo_avail = [c for c in fo_cols if c in fo_df.columns]
+                fo_df = fo_df[fo_avail]
+                fo_rename = {"nome": "Nome", "tipo": "Tipo", "ticket_min": "Ticket Mín", "ticket_max": "Ticket Máx", "indexador_pref": "Indexador", "notas": "Notas"}
+                fo_df = fo_df.rename(columns={k: v for k, v in fo_rename.items() if k in fo_df.columns})
+                fo_df["Ticket Mín"] = fo_df["Ticket Mín"].apply(fmt)
+                fo_df["Ticket Máx"] = fo_df["Ticket Máx"].apply(fmt)
+                st.dataframe(fo_df, use_container_width=True)
+
+            if st.button("📥 Exportar Excel Completo"):
+                export_deal_matching(deal, matching)
+                st.success(f"Exportado em {OUTPUT_DIR}/")
+
+
+
+# ══════════════════════════════════════════
+# BASE MANUAL
+# ══════════════════════════════════════════
+elif page == "Base Manual":
+    st.markdown("""<div class="main-header">
+        <h1>Base Manual de Investidores</h1>
+        <p>Family Offices, Tesourarias, Seguradoras e Previdência</p>
+    </div>""", unsafe_allow_html=True)
+
+    fo_base = load_family_offices()
+    if fo_base:
+        tipos = sorted(set(inv.get("tipo", "") for inv in fo_base))
+        tipo_f = st.multiselect("Filtrar por tipo", tipos, default=tipos)
+        filtered = [inv for inv in fo_base if inv.get("tipo", "") in tipo_f]
+        if filtered:
+            df = pd.DataFrame(filtered)
+            cols = ["nome", "tipo", "apetite", "ticket_min", "ticket_max", "indexador_pref", "contato_nome", "contato_email", "notas"]
+            avail = [c for c in cols if c in df.columns]
+            display = df[avail].copy()
+            display.columns = [c.replace("_", " ").title() for c in avail]
+            if "Apetite" in display.columns:
+                display["Apetite"] = display["Apetite"].apply(lambda x: ", ".join(x) if isinstance(x, list) else str(x))
+            if "Ticket Min" in display.columns:
+                display["Ticket Min"] = display["Ticket Min"].apply(fmt)
+            if "Ticket Max" in display.columns:
+                display["Ticket Max"] = display["Ticket Max"].apply(fmt)
+            st.dataframe(display, use_container_width=True, height=400)
+            excel_btn(display, "zyn_base_manual.xlsx", key="exp_base_manual")
+        st.markdown(f"**Total**: {len(filtered)}")
+
+    st.markdown("---")
+    st.subheader("Adicionar Investidor")
+    with st.form("add"):
+        c1, c2 = st.columns(2)
+        nome = c1.text_input("Nome")
+        tipo = c1.selectbox("Tipo", ["Family Office", "Tesouraria Banco", "Seguradora", "Previdência", "Outro"])
+        apetite = c2.multiselect("Apetite", ["NC", "CRI", "CRA", "CPR-F", "DEBENTURE"])
+        indexador = c2.selectbox("Indexador", ["", "CDI", "IPCA", "PRE"])
+        contato = c1.text_input("Contato")
+        email = c2.text_input("E-mail")
+        tc1, tc2 = st.columns(2)
+        t_min = tc1.number_input("Ticket mín (R$ M)", value=0)
+        t_max = tc2.number_input("Ticket máx (R$ M)", value=0)
+        notas = st.text_area("Notas")
+        if st.form_submit_button("Adicionar", type="primary") and nome:
+            add_investor({"nome": nome, "tipo": tipo, "apetite": apetite, "indexador_pref": indexador,
+                          "contato_nome": contato, "contato_email": email,
+                          "ticket_min": t_min * 1e6, "ticket_max": t_max * 1e6,
+                          "notas": notas, "origem": "manual", "ativo": True})
+            st.success(f"✅ {nome} adicionado!")
+            st.rerun()
+
+
+# ══════════════════════════════════════════
+# ATUALIZAR
+# ══════════════════════════════════════════
+elif page == "Atualizar":
+    st.markdown("""<div class="main-header">
+        <h1>Atualizar Dados CVM</h1>
+        <p>Baixar dados atualizados, enriquecer cedentes/devedores e recalcular perfis</p>
+    </div>""", unsafe_allow_html=True)
+
+    cache = DATA_DIR / "positions_enriched.csv"
+    if cache.exists():
+        mod = datetime.fromtimestamp(cache.stat().st_mtime)
+        age = (datetime.now() - mod).days
+        st.info(f"Última atualização: **{mod.strftime('%d/%m/%Y %H:%M')}** ({age} dias)")
+        if age >= 30:
+            st.warning("⚠️ Dados com mais de 30 dias. Recomendamos atualizar.")
+    else:
+        st.warning("Nenhum dado carregado.")
+
+    # Atualização automática
+    st.markdown("---")
+    st.subheader("Atualização Automática")
+    st.markdown("""
+    A base é atualizada automaticamente **no dia 1 e 15 de cada mês** às 9h via cron job.
+
+    **Pipeline completo:**
+    1. Baixa CDA (posições de fundos) — dados.cvm.gov.br
+    2. Baixa cadastro de fundos (gestora, admin, PL)
+    3. Identifica devedores — NC/Debênture: emissor direto; BLC_4: ticker B3
+    4. Enriquece CRI/CRA com cedentes/devedores — informes mensais CVM (SECURIT)
+    5. Calcula perfis de investidores e scores de matching
+    """)
+
+    # Atualização manual
+    st.markdown("---")
+    st.subheader("Atualização Manual")
+    months = st.slider("Meses de dados", 1, 6, 3)
+    export = st.checkbox("Exportar para Notion", True)
+
+    if st.button("🔄 Atualizar Agora", type="primary"):
+        cmd = [sys.executable, "main.py", "--months", str(months)]
+        if export:
+            cmd.append("--export-notion")
+        with st.spinner("Baixando dados CVM e enriquecendo cedentes/devedores..."):
+            result = subprocess.run(cmd, capture_output=True, text=True,
+                                    cwd=str(Path(__file__).resolve().parent), timeout=900)
+        if result.returncode == 0:
+            st.success("✅ Atualizado com sucesso!")
+            st.cache_data.clear()
+            with st.expander("Log completo"):
+                st.code(result.stdout)
+        else:
+            st.error("Erro na atualização:")
+            st.code(result.stderr or result.stdout)
+
+    # Status dos dados
+    st.markdown("---")
+    st.subheader("Status dos Dados")
+    data_files = {
+        "positions_enriched.csv": "Posições enriquecidas",
+        "investor_profiles.csv": "Perfis de investidores",
+        "devedor_mapping.csv": "Mapeamento cedentes/devedores CRI/CRA",
+        "cvm_cedentes_devedores.csv": "Base cedentes CVM (raw)",
+        "cvm_classes_cri_cra.csv": "Classes CRI/CRA CVM",
+        "cvm_gerais_cri_cra.csv": "Dados gerais CRI/CRA CVM",
+    }
+    for fname, desc in data_files.items():
+        fpath = DATA_DIR / fname
+        if fpath.exists():
+            fmod = datetime.fromtimestamp(fpath.stat().st_mtime).strftime('%d/%m/%Y %H:%M')
+            fsize = fpath.stat().st_size
+            size_str = f"{fsize/1e6:.1f} MB" if fsize > 1e6 else f"{fsize/1e3:.0f} KB"
+            st.markdown(f"- **{desc}**: {fmod} ({size_str})")
+        else:
+            st.markdown(f"- **{desc}**: *não encontrado*")

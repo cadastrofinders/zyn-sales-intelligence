@@ -1,0 +1,239 @@
+[
+  {
+    "nome": "Itaú BBA - Tesouraria",
+    "tipo": "Tesouraria Banco",
+    "apetite": [
+      "NC",
+      "CRI",
+      "CRA",
+      "DEBENTURE"
+    ],
+    "ticket_min": 10000000,
+    "ticket_max": 500000000
+  },
+  {
+    "nome": "Bradesco BBI - Tesouraria",
+    "tipo": "Tesouraria Banco",
+    "apetite": [
+      "NC",
+      "CRI",
+      "CRA",
+      "DEBENTURE"
+    ],
+    "ticket_min": 10000000,
+    "ticket_max": 500000000
+  },
+  {
+    "nome": "BTG Pactual - Tesouraria",
+    "tipo": "Tesouraria Banco",
+    "apetite": [
+      "NC",
+      "CRI",
+      "CRA",
+      "DEBENTURE",
+      "CPR-F"
+    ],
+    "ticket_min": 5000000,
+    "ticket_max": 1000000000
+  },
+  {
+    "nome": "Santander - Tesouraria",
+    "tipo": "Tesouraria Banco",
+    "apetite": [
+      "NC",
+      "CRI",
+      "DEBENTURE"
+    ],
+    "ticket_min": 10000000,
+    "ticket_max": 300000000
+  },
+  {
+    "nome": "Safra - Tesouraria",
+    "tipo": "Tesouraria Banco",
+    "apetite": [
+      "NC",
+      "CRI",
+      "CRA",
+      "DEBENTURE"
+    ],
+    "ticket_min": 5000000,
+    "ticket_max": 200000000
+  },
+  {
+    "nome": "ABC Brasil - Tesouraria",
+    "tipo": "Tesouraria Banco",
+    "apetite": [
+      "NC",
+      "CRI",
+      "CRA",
+      "DEBENTURE"
+    ],
+    "ticket_min": 5000000,
+    "ticket_max": 100000000
+  },
+  {
+    "nome": "Daycoval - Tesouraria",
+    "tipo": "Tesouraria Banco",
+    "apetite": [
+      "NC",
+      "CRI",
+      "CRA",
+      "DEBENTURE"
+    ],
+    "ticket_min": 5000000,
+    "ticket_max": 100000000
+  },
+  {
+    "nome": "Pine - Tesouraria",
+    "tipo": "Tesouraria Banco",
+    "apetite": [
+      "NC",
+      "CRA",
+      "DEBENTURE"
+    ],
+    "ticket_min": 3000000,
+    "ticket_max": 50000000
+  },
+  {
+    "nome": "BMG - Tesouraria",
+    "tipo": "Tesouraria Banco",
+    "apetite": [
+      "NC",
+      "CRI",
+      "DEBENTURE"
+    ],
+    "ticket_min": 3000000,
+    "ticket_max": 50000000
+  },
+  {
+    "nome": "Original - Tesouraria",
+    "tipo": "Tesouraria Banco",
+    "apetite": [
+      "NC",
+      "CRA",
+      "DEBENTURE"
+    ],
+    "ticket_min": 5000000,
+    "ticket_max": 80000000
+  },
+  {
+    "nome": "Banco Master - Tesouraria",
+    "tipo": "Tesouraria Banco",
+    "apetite": [
+      "NC",
+      "CRI",
+      "CRA",
+      "DEBENTURE",
+      "CPR-F"
+    ],
+    "ticket_min": 3000000,
+    "ticket_max": 100000000
+  },
+  {
+    "nome": "Voiter - Tesouraria",
+    "tipo": "Tesouraria Banco",
+    "apetite": [
+      "NC",
+      "CRI",
+      "CRA",
+      "DEBENTURE"
+    ],
+    "ticket_min": 2000000,
+    "ticket_max": 50000000
+  },
+  {
+    "nome": "Porto Seguro - Investimentos",
+    "tipo": "Seguradora",
+    "apetite": [
+      "CRI",
+      "CRA",
+      "DEBENTURE"
+    ],
+    "ticket_min": 10000000,
+    "ticket_max": 200000000,
+    "indexador_pref": "IPCA"
+  },
+  {
+    "nome": "SulAmérica - Investimentos",
+    "tipo": "Seguradora",
+    "apetite": [
+      "CRI",
+      "CRA",
+      "DEBENTURE"
+    ],
+    "ticket_min": 10000000,
+    "ticket_max": 150000000,
+    "indexador_pref": "IPCA"
+  },
+  {
+    "nome": "Tokio Marine - Investimentos",
+    "tipo": "Seguradora",
+    "apetite": [
+      "CRI",
+      "CRA",
+      "DEBENTURE"
+    ],
+    "ticket_min": 5000000,
+    "ticket_max": 80000000
+  },
+  {
+    "nome": "Brasilprev",
+    "tipo": "Previdência",
+    "apetite": [
+      "CRI",
+      "CRA",
+      "DEBENTURE"
+    ],
+    "ticket_min": 20000000,
+    "ticket_max": 500000000,
+    "indexador_pref": "IPCA"
+  },
+  {
+    "nome": "Funcef",
+    "tipo": "Previdência",
+    "apetite": [
+      "CRI",
+      "CRA",
+      "DEBENTURE"
+    ],
+    "ticket_min": 20000000,
+    "ticket_max": 300000000,
+    "indexador_pref": "IPCA"
+  },
+  {
+    "nome": "Petros",
+    "tipo": "Previdência",
+    "apetite": [
+      "CRI",
+      "CRA",
+      "DEBENTURE"
+    ],
+    "ticket_min": 20000000,
+    "ticket_max": 300000000,
+    "indexador_pref": "IPCA"
+  },
+  {
+    "nome": "Previ",
+    "tipo": "Previdência",
+    "apetite": [
+      "CRI",
+      "CRA",
+      "DEBENTURE"
+    ],
+    "ticket_min": 50000000,
+    "ticket_max": 1000000000,
+    "indexador_pref": "IPCA"
+  },
+  {
+    "nome": "Valia",
+    "tipo": "Previdência",
+    "apetite": [
+      "CRI",
+      "CRA",
+      "DEBENTURE"
+    ],
+    "ticket_min": 10000000,
+    "ticket_max": 200000000,
+    "indexador_pref": "IPCA"
+  }
+]
