@@ -401,6 +401,12 @@ st.markdown(f"""
     /* Hide Streamlit branding */
     footer {{ visibility: hidden; }}
     #MainMenu {{ visibility: hidden; }}
+
+    /* === Sidebar nav separators === */
+    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] {{
+        padding: 0.35rem 0.8rem !important;
+        margin-bottom: 1px;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -449,58 +455,40 @@ with st.sidebar:
         </svg>
     </div>""", unsafe_allow_html=True)
     st.markdown("---")
-    st.markdown('<p style="color:rgba(255,255,255,0.35);font-size:0.6rem;text-transform:uppercase;letter-spacing:0.12em;margin:0.3rem 0 0.2rem 0.5rem;">Mercado CVM</p>', unsafe_allow_html=True)
-    page = st.radio(
+
+    ALL_PAGES = [
+        "📊  Visão Geral",
+        "🏢  Gestoras",
+        "📁  Fundos & Papéis",
+        "🏭  Emissores",
+        "👤  Devedores",
+        "💰  Fundos com Caixa",
+        "🔗  Matching",
+        "───────────────",
+        "📋  Pipeline",
+        "🔄  Pipeline x Investidores",
+        "🎯  Oportunidades",
+        "🔔  Alertas",
+        "───────────────",
+        "✏️  Base Manual",
+        "🔃  Atualizar",
+    ]
+    SEPARATOR = "───────────────"
+
+    page_sel = st.radio(
         "Navegação",
-        [
-            "Visão Geral",
-            "Gestoras",
-            "Fundos & Papéis",
-            "Emissores",
-            "Devedores",
-            "Fundos com Caixa",
-            "Matching",
-        ],
+        ALL_PAGES,
         label_visibility="collapsed",
+        key="nav_radio",
     )
-    st.markdown('<p style="color:rgba(255,255,255,0.35);font-size:0.6rem;text-transform:uppercase;letter-spacing:0.12em;margin:0.8rem 0 0.2rem 0.5rem;">Pipeline & BI</p>', unsafe_allow_html=True)
-    page2 = st.radio(
-        "Pipeline",
-        [
-            "Pipeline",
-            "Pipeline x Investidores",
-            "Oportunidades",
-            "Alertas",
-        ],
-        label_visibility="collapsed",
-    )
-    st.markdown('<p style="color:rgba(255,255,255,0.35);font-size:0.6rem;text-transform:uppercase;letter-spacing:0.12em;margin:0.8rem 0 0.2rem 0.5rem;">Sistema</p>', unsafe_allow_html=True)
-    page3 = st.radio(
-        "Sistema",
-        [
-            "Base Manual",
-            "Atualizar",
-        ],
-        label_visibility="collapsed",
-    )
-    # Resolve active page (only one radio can be active at a time but Streamlit radio groups are independent)
-    # Use session state to track which group was last clicked
-    if "last_page" not in st.session_state:
-        st.session_state.last_page = "Visão Geral"
 
-    all_pages = {
-        "mercado": ["Visão Geral", "Gestoras", "Fundos & Papéis", "Emissores", "Devedores", "Fundos com Caixa", "Matching"],
-        "pipeline": ["Pipeline", "Pipeline x Investidores", "Oportunidades", "Alertas"],
-        "sistema": ["Base Manual", "Atualizar"],
-    }
-
-    # Determine which page changed
-    for p, group in [(page, "mercado"), (page2, "pipeline"), (page3, "sistema")]:
-        if p != st.session_state.get(f"prev_{group}"):
-            st.session_state.last_page = p
-            st.session_state[f"prev_{group}"] = p
-
-    page = st.session_state.last_page
+    # If user clicks a separator, keep previous page
+    if page_sel == SEPARATOR:
+        page = st.session_state.get("active_page", "Visão Geral")
+    else:
+        # Strip emoji prefix to get clean page name
+        page = page_sel.split("  ", 1)[-1] if "  " in page_sel else page_sel
+        st.session_state.active_page = page
     st.markdown("---")
     positions = load_positions()
     if not positions.empty:
@@ -2152,15 +2140,21 @@ elif page == "Pipeline x Investidores":
         deal_val = deal_data["Valor Deal"].iloc[0]
         deal_tipo = deal_data["Tipo"].iloc[0]
         notion_url = deal_data["Notion URL"].iloc[0] if "Notion URL" in deal_data.columns else ""
+        val_str = fmt(deal_val) if pd.notna(deal_val) else "—"
+        link_html = f"&nbsp;&nbsp;<a href='{notion_url}' target='_blank' style='color:{GREEN};text-decoration:none;font-weight:500;'>Notion ↗</a>" if notion_url else ""
 
-        with st.expander(f"**{deal_name}** — {deal_tipo} — {fmt(deal_val) if pd.notna(deal_val) else '—'}", expanded=(selected_deal != "Todos")):
-            if notion_url:
-                st.markdown(f"<a href='{notion_url}' target='_blank' style='color:{GREEN};text-decoration:none;font-weight:500;font-size:0.85rem;'>Abrir no Notion ↗</a>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="background:white;border-radius:8px;padding:1rem 1.2rem;margin:0.8rem 0 0.3rem;
+                    border-left:4px solid {GREEN};box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+            <span style="font-weight:700;font-size:1rem;color:{NAVY};">{deal_name}</span>
+            <span style="color:{GRAY};font-size:0.85rem;"> — {deal_tipo} — {val_str}</span>
+            {link_html}
+        </div>""", unsafe_allow_html=True)
 
-            tbl = deal_data[["Gestora CVM", "Volume Histórico", "Fundos Ativos", "Já Analisando"]].copy()
-            tbl["Volume Histórico"] = tbl["Volume Histórico"].apply(fmt)
-            tbl["Já Analisando"] = tbl["Já Analisando"].apply(lambda x: "Sim" if x else "—")
-            st.dataframe(tbl, use_container_width=True, height=min(len(tbl) * 40 + 50, 400))
+        tbl = deal_data[["Gestora CVM", "Volume Histórico", "Fundos Ativos", "Já Analisando"]].copy()
+        tbl["Volume Histórico"] = tbl["Volume Histórico"].apply(fmt)
+        tbl["Já Analisando"] = tbl["Já Analisando"].apply(lambda x: "Sim" if x else "—")
+        st.dataframe(tbl, use_container_width=True, height=min(len(tbl) * 40 + 50, 400))
 
     # Export
     st.markdown("---")
