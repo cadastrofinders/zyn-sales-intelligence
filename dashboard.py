@@ -2398,8 +2398,10 @@ elif page == "Matching":
                 fo_df = fo_df[fo_avail]
                 fo_rename = {"nome": "Nome", "tipo": "Tipo", "ticket_min": "Ticket Mín", "ticket_max": "Ticket Máx", "indexador_pref": "Indexador", "notas": "Notas"}
                 fo_df = fo_df.rename(columns={k: v for k, v in fo_rename.items() if k in fo_df.columns})
-                fo_df["Ticket Mín"] = fo_df["Ticket Mín"].apply(fmt)
-                fo_df["Ticket Máx"] = fo_df["Ticket Máx"].apply(fmt)
+                if "Ticket Mín" in fo_df.columns:
+                    fo_df["Ticket Mín"] = fo_df["Ticket Mín"].apply(fmt)
+                if "Ticket Máx" in fo_df.columns:
+                    fo_df["Ticket Máx"] = fo_df["Ticket Máx"].apply(fmt)
                 st.dataframe(fo_df, use_container_width=True)
 
             if st.button("📥 Exportar Excel Completo"):
