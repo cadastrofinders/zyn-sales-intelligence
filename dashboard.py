@@ -466,6 +466,31 @@ def fmt(value):
     return f"R$ {value:,.0f}"
 
 
+import urllib.parse as _urlparse
+
+
+def share_buttons(title: str, body: str):
+    """Render compact WhatsApp + Email share icons in top-right corner."""
+    wa_text = f"*{title}*\n{body}\n\n_Enviado via ZYN Sales Intelligence_"
+    wa_url = f"https://wa.me/?text={_urlparse.quote(wa_text)}"
+    mail_subj = _urlparse.quote(title)
+    mail_body = _urlparse.quote(f"{body}\n\nEnviado via ZYN Sales Intelligence")
+    mail_url = f"mailto:?subject={mail_subj}&body={mail_body}"
+    st.markdown(
+        f'<div style="position:fixed;top:60px;right:18px;z-index:999;display:flex;gap:6px;">'
+        f'<a href="{wa_url}" target="_blank" title="Compartilhar no WhatsApp" '
+        f'style="background:#25D366;color:white;width:34px;height:34px;border-radius:50%;'
+        f'display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:18px;'
+        f'box-shadow:0 2px 6px rgba(0,0,0,.2);">💬</a>'
+        f'<a href="{mail_url}" title="Enviar por E-mail" '
+        f'style="background:#223040;color:white;width:34px;height:34px;border-radius:50%;'
+        f'display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:18px;'
+        f'box-shadow:0 2px 6px rgba(0,0,0,.2);">✉️</a>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
 # === SIDEBAR ===
 with st.sidebar:
     st.markdown("""<div class="sidebar-brand">
@@ -556,58 +581,36 @@ if page == "Painel Executivo":
     _pipe = pipeline_to_df()
     _ativos = _pipe[_pipe["Status"] != "Declinado"] if not _pipe.empty else pd.DataFrame()
 
-    # ── Compartilhar via WhatsApp ──
-    def _build_whatsapp_msg() -> str:
-        hoje = datetime.now().strftime("%d/%m/%Y")
-        _quentes = len(_ativos[_ativos["Status"] == "Quente"]) if not _ativos.empty and "Status" in _ativos.columns else 0
-        _mornos = len(_ativos[_ativos["Status"] == "Morno"]) if not _ativos.empty and "Status" in _ativos.columns else 0
-        _frios = len(_ativos[_ativos["Status"] == "Frio"]) if not _ativos.empty and "Status" in _ativos.columns else 0
-        _conv = f"{_kpis['leads_convertidos']}/{_kpis['leads_total']}" if _kpis.get("leads_total") else "—"
-
-        lines = [
-            f"*ZYN Capital — Painel Executivo*",
-            f"_{hoje}_",
-            "",
-            f"*Pipeline:* {fmt_br(_kpis['pipe_total'])} ({_kpis['pipe_count']} deals)",
-            f"  Quentes: {_quentes} | Mornos: {_mornos} | Frios: {_frios}",
-            "",
-            f"*Receita Recebida:* {fmt_br(_kpis['rec_recebida'])}",
-            f"*Receita Confirmada:* {fmt_br(_kpis['rec_confirmada'])}",
-            f"*Receita Prevista:* {fmt_br(_kpis['rec_prevista'])}",
-            "",
-            f"*Despesas:* {fmt_br(_kpis['desp_paga'])}",
-            f"*Burn Rate:* {fmt_br(_kpis['burn_rate'])}/mês",
-            f"*Saldo C6:* {fmt_br(_kpis['saldo_atual'])}",
-            f"*Runway:* {_kpis['runway_meses']:.1f} meses",
-            "",
-            f"*Leads:* {_kpis['leads_ativos']} ativos | Conversão: {_conv}",
-        ]
-
-        # Add deal list if small enough
-        if not _ativos.empty and len(_ativos) <= 15:
-            lines.append("")
-            lines.append("*Deals ativos:*")
-            for _, d in _ativos.iterrows():
-                nome = str(d.get("Cliente", "")).strip()[:25]
-                status = str(d.get("Status", ""))
-                valor = fmt_br(d["Valor"]) if pd.notna(d.get("Valor")) else "—"
-                emoji = {"Quente": "🔴", "Morno": "🟡", "Frio": "🔵"}.get(status, "⚪")
-                lines.append(f"  {emoji} {nome} — {valor}")
-
-        lines.append("")
-        lines.append("_Enviado via ZYN Sales Intelligence_")
-        return "\n".join(lines)
-
-    import urllib.parse as _urlparse
-    _wa_msg = _build_whatsapp_msg()
-    _wa_url = f"https://wa.me/?text={_urlparse.quote(_wa_msg)}"
-    st.markdown(
-        f'<a href="{_wa_url}" target="_blank" style="display:inline-block;background:#25D366;color:white;'
-        f'padding:8px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">'
-        f'📤 Compartilhar no WhatsApp</a>',
-        unsafe_allow_html=True,
+    # ── Share buttons ──
+    _quentes = len(_ativos[_ativos["Status"] == "Quente"]) if not _ativos.empty and "Status" in _ativos.columns else 0
+    _mornos = len(_ativos[_ativos["Status"] == "Morno"]) if not _ativos.empty and "Status" in _ativos.columns else 0
+    _frios = len(_ativos[_ativos["Status"] == "Frio"]) if not _ativos.empty and "Status" in _ativos.columns else 0
+    _conv = f"{_kpis['leads_convertidos']}/{_kpis['leads_total']}" if _kpis.get("leads_total") else "—"
+    _hoje = datetime.now().strftime("%d/%m/%Y")
+    _deal_lines = ""
+    if not _ativos.empty and len(_ativos) <= 15:
+        _dl = []
+        for _, d in _ativos.iterrows():
+            _n = str(d.get("Cliente", "")).strip()[:25]
+            _s = str(d.get("Status", ""))
+            _v = fmt_br(d["Valor"]) if pd.notna(d.get("Valor")) else "—"
+            _e = {"Quente": "🔴", "Morno": "🟡", "Frio": "🔵"}.get(_s, "⚪")
+            _dl.append(f"  {_e} {_n} — {_v}")
+        _deal_lines = "\n\nDeals ativos:\n" + "\n".join(_dl)
+    share_buttons(
+        f"ZYN Capital — Painel Executivo ({_hoje})",
+        f"Pipeline: {fmt_br(_kpis['pipe_total'])} ({_kpis['pipe_count']} deals)\n"
+        f"  Quentes: {_quentes} | Mornos: {_mornos} | Frios: {_frios}\n\n"
+        f"Receita Recebida: {fmt_br(_kpis['rec_recebida'])}\n"
+        f"Receita Confirmada: {fmt_br(_kpis['rec_confirmada'])}\n"
+        f"Receita Prevista: {fmt_br(_kpis['rec_prevista'])}\n\n"
+        f"Despesas: {fmt_br(_kpis['desp_paga'])}\n"
+        f"Burn Rate: {fmt_br(_kpis['burn_rate'])}/mês\n"
+        f"Saldo C6: {fmt_br(_kpis['saldo_atual'])}\n"
+        f"Runway: {_kpis['runway_meses']:.1f} meses\n\n"
+        f"Leads: {_kpis['leads_ativos']} ativos | Conversão: {_conv}"
+        f"{_deal_lines}",
     )
-    st.markdown("<br>", unsafe_allow_html=True)
 
     # ── TABS ──
     tab_resumo, tab_pipe, tab_rec, tab_desp, tab_fluxo, tab_leads, tab_indic = st.tabs([
@@ -1121,6 +1124,8 @@ elif page == "Visão Geral":
         st.error("Nenhum dado. Vá em Atualizar.")
         st.stop()
 
+    share_buttons("ZYN — Visão Geral do Mercado", f"Volume Total: {fmt(positions['vl_posicao'].sum())}\nFundos: {positions['cnpj_fundo'].nunique()}\nGestoras: {positions['gestora'].nunique()}\nPosições: {len(positions):,}")
+
     # --- Busca Universal ---
     busca_global = st.text_input(
         "Buscar por nome, CPF, CNPJ, fundo, gestora, devedor, emissor, ticker...",
@@ -1299,6 +1304,8 @@ elif page == "Gestoras":
     if positions.empty:
         st.error("Nenhum dado.")
         st.stop()
+
+    share_buttons("ZYN — Gestoras", f"{len(profiles)} gestoras mapeadas\nVolume total RF: {fmt(profiles['vol_total'].sum()) if not profiles.empty else '—'}")
 
     # Filtros
     col_f1, col_f2, col_f3 = st.columns(3)
@@ -1505,6 +1512,8 @@ elif page == "Fundos & Papéis":
     if positions.empty:
         st.error("Nenhum dado.")
         st.stop()
+
+    share_buttons("ZYN — Fundos & Papéis", f"{positions['cnpj_fundo'].nunique()} fundos\nVolume: {fmt(positions['vl_posicao'].sum())}")
 
     # Filtros
     col1, col2, col3, col4 = st.columns(4)
@@ -1774,6 +1783,8 @@ elif page == "Emissores":
         st.error("Nenhum dado.")
         st.stop()
 
+    share_buttons("ZYN — Emissores", f"{positions['emissor'].nunique() if 'emissor' in positions.columns else 0} emissores\nVolume: {fmt(positions['vl_posicao'].sum())}")
+
     em_base = positions[positions["emissor"].notna()]
 
     # Filtros
@@ -1954,6 +1965,8 @@ elif page == "Devedores":
     # Base: posições com devedor identificado
     dev_base = positions.copy()
     has_devedor = dev_base["devedor"].notna() if "devedor" in dev_base.columns else pd.Series(False, index=dev_base.index)
+
+    share_buttons("ZYN — Devedores/Cedentes", f"{dev_base['devedor'].nunique() if 'devedor' in dev_base.columns else 0} devedores\nVolume: {fmt(dev_base['vl_posicao'].sum())}")
 
     # --- Filtros ---
     st.markdown("### Filtros")
@@ -2184,6 +2197,8 @@ elif page == "Fundos com Caixa":
     if positions.empty:
         st.error("Nenhum dado.")
         st.stop()
+
+    share_buttons("ZYN — Fundos com Caixa", f"{positions['cnpj_fundo'].nunique()} fundos\nVolume RF: {fmt(positions['vl_posicao'].sum())}")
 
     # Build fund-level aggregation
     fundos_raw = positions.groupby(["cnpj_fundo", "nome_fundo", "gestora"]).agg(
@@ -2430,6 +2445,8 @@ elif page == "Matching":
     if positions.empty or profiles.empty:
         st.error("Nenhum dado.")
         st.stop()
+
+    share_buttons("ZYN — Matching por Operação", f"{len(profiles)} perfis de investidores disponíveis")
 
     st.subheader("Parâmetros da Operação")
     c1, c2, c3, c4 = st.columns(4)
@@ -2761,6 +2778,8 @@ elif page == "Pipeline":
     active = pipe_df[pipe_df["Status"] != "Declinado"]
     declinados = pipe_df[pipe_df["Status"] == "Declinado"]
 
+    share_buttons("ZYN — Pipeline", f"{len(active)} deals ativos\nVolume: {fmt_br(active['Valor'].sum()) if not active.empty else '—'}")
+
     # KPIs
     vol_ativo = active["Valor"].dropna().sum()
     k1, k2, k3, k4 = st.columns(4)
@@ -2877,6 +2896,8 @@ elif page == "Pipeline x Investidores":
         st.info("Nenhum matching encontrado.")
         st.stop()
 
+    share_buttons("ZYN — Pipeline x Investidores", "Matching automático Pipeline vs CVM")
+
     # Filters
     f1, f2, f3 = st.columns(3)
     deal_list = sorted(matching["Deal"].unique().tolist())
@@ -2959,6 +2980,8 @@ elif page == "Oportunidades":
     if positions.empty:
         st.error("Nenhum dado CVM.")
         st.stop()
+
+    share_buttons("ZYN — Oportunidades", "Deals com retorno pendente e alertas")
 
     # Build fund-level with cash
     fundos_opp = positions.groupby(["cnpj_fundo", "nome_fundo", "gestora"]).agg(
@@ -3073,6 +3096,8 @@ elif page == "Alertas":
     if pipe_df.empty:
         st.warning("Nenhum dado de Pipeline.")
         st.stop()
+
+    share_buttons("ZYN — Alertas", "Alertas de pipeline e retornos vencidos")
 
     active = pipe_df[pipe_df["Status"] != "Declinado"].copy()
     today = datetime.now().strftime("%Y-%m-%d")
