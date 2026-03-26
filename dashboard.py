@@ -1853,7 +1853,10 @@ elif page == "Devedores":
 
     # --- Ranking de devedores ---
     if "devedor" in dev_base.columns:
-        dev_with_name = dev_base[dev_base["devedor"].notna()].copy()
+        dev_with_name = dev_base[
+            dev_base["devedor"].notna()
+            & ~dev_base["devedor"].str.contains("Cedente via|Cedente não", na=False, regex=True)
+        ].copy()
 
         devedores_agg = dev_with_name.groupby("devedor").agg(
             volume=("vl_posicao", "sum"),
