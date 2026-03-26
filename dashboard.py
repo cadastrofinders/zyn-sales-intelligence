@@ -303,23 +303,43 @@ st.markdown(f"""
 
     /* === Sidebar brand mark === */
     .sidebar-brand {{
-        padding: 0.5rem 0 0.8rem;
-        text-align: center;
+        padding: 0.8rem 0 0.6rem;
+        text-align: left;
+        padding-left: 0.5rem;
     }}
-    .sidebar-brand h2 {{
+    .sidebar-brand .brand-zyn {{
         color: white !important;
         font-family: 'Montserrat', sans-serif !important;
         font-weight: 700;
-        font-size: 1rem;
-        letter-spacing: 0.08em;
+        font-size: 1.75rem;
+        letter-spacing: 0.06em;
         margin: 0;
+        line-height: 1;
+        display: inline-block;
+    }}
+    .sidebar-brand .brand-dot {{
+        color: {GREEN};
+        font-size: 1.75rem;
+        font-weight: 700;
+    }}
+    .sidebar-brand .brand-capital {{
+        color: rgba(255,255,255,0.45);
+        font-family: 'Montserrat', sans-serif !important;
+        font-size: 0.65rem;
+        font-weight: 400;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        margin-top: 0.1rem;
     }}
     .sidebar-brand .brand-sub {{
-        color: rgba(255,255,255,0.4);
-        font-size: 0.62rem;
+        color: rgba(255,255,255,0.3);
+        font-family: 'Montserrat', sans-serif !important;
+        font-size: 0.55rem;
         text-transform: uppercase;
-        letter-spacing: 0.15em;
-        margin-top: 0.15rem;
+        letter-spacing: 0.12em;
+        margin-top: 0.4rem;
+        padding-top: 0.4rem;
+        border-top: 1px solid rgba(255,255,255,0.08);
     }}
     .sidebar-stats {{
         font-size: 0.75rem;
@@ -380,7 +400,8 @@ def fmt(value):
 # === SIDEBAR ===
 with st.sidebar:
     st.markdown("""<div class="sidebar-brand">
-        <h2>ZYN CAPITAL</h2>
+        <div class="brand-zyn">ZYN<span class="brand-dot">.</span></div>
+        <div class="brand-capital">CAPITAL</div>
         <div class="brand-sub">Sales Intelligence</div>
     </div>""", unsafe_allow_html=True)
     st.markdown("---")
