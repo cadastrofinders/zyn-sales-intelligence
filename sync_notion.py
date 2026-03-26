@@ -22,7 +22,7 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 PIPELINE_FILE = DATA_DIR / "pipeline.json"
 
 # IDs das páginas do Pipeline no Notion — mantidos atualizados pelo sync
-PIPELINE_DB_ID = "2f68e4de-57c8-811b-a1ec-000baba9429a"
+PIPELINE_DB_ID = "2f68e4de-57c8-81f3-bcaa-cc73f28fd5d5"
 
 
 def update_pipeline_from_notion(deals_raw: list[dict], dry_run: bool = False) -> dict:

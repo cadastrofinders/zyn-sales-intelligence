@@ -14,7 +14,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime
+from datetime import datetime, timedelta
 import subprocess
 
 from config.settings import DATA_DIR, OUTPUT_DIR
@@ -24,6 +24,10 @@ from src.report_generator import export_investor_profiles, export_deal_matching
 from src.notion_pipeline import (
     pipeline_to_df, active_deals, deals_by_status,
     investor_frequency, match_pipeline_to_cvm, pipeline_sync_date,
+)
+from src.notion_gestao import (
+    receitas_df, despesas_df, fluxo_df, leads_df,
+    kpis_resumo, gestao_sync_date, sync_gestao, load_cache,
 )
 
 
@@ -432,6 +436,8 @@ def load_profiles():
 
 
 def fmt(value):
+    if not isinstance(value, (int, float)):
+        return str(value) if value else "—"
     if pd.isna(value) or value == 0:
         return "—"
     v = abs(value)
@@ -457,6 +463,8 @@ with st.sidebar:
     st.markdown("---")
 
     ALL_PAGES = [
+        "📈  Painel Executivo",
+        "── Market Intel ────",
         "📊  Visão Geral",
         "🏢  Gestoras",
         "📁  Fundos & Papéis",
@@ -464,16 +472,16 @@ with st.sidebar:
         "👤  Devedores",
         "💰  Fundos com Caixa",
         "🔗  Matching",
-        "───────────────",
+        "── Gestão ──────",
         "📋  Pipeline",
         "🔄  Pipeline x Investidores",
         "🎯  Oportunidades",
         "🔔  Alertas",
-        "───────────────",
+        "── Config ──────",
         "✏️  Base Manual",
         "🔃  Atualizar",
     ]
-    SEPARATOR = "───────────────"
+    _SEPS = {"── Market Intel ────", "── Gestão ──────", "── Config ──────"}
 
     page_sel = st.radio(
         "Navegação",
@@ -483,7 +491,7 @@ with st.sidebar:
     )
 
     # If user clicks a separator, keep previous page
-    if page_sel == SEPARATOR:
+    if page_sel in _SEPS:
         page = st.session_state.get("active_page", "Visão Geral")
     else:
         # Strip emoji prefix to get clean page name
@@ -506,9 +514,534 @@ with st.sidebar:
 
 
 # ══════════════════════════════════════════
+# PAINEL EXECUTIVO
+# ══════════════════════════════════════════
+if page == "Painel Executivo":
+    st.markdown("""<div class="main-header">
+        <h1>Painel Executivo</h1>
+        <p>Gestão ZYN Capital — Pipeline, Receitas, Despesas, Fluxo de Caixa e Indicadores</p>
+    </div>""", unsafe_allow_html=True)
+
+    # Check cache
+    _gc = load_cache()
+    if not _gc:
+        st.warning("Dados de gestão não carregados. Vá em **Atualizar** → Sync Painel Notion.")
+        st.stop()
+
+    _sync_dt = gestao_sync_date()
+    st.caption(f"Última sincronização: {_sync_dt}")
+
+    # Load data
+    _kpis = kpis_resumo()
+    _rec = receitas_df()
+    _desp = despesas_df()
+    _fluxo = fluxo_df()
+    _leads = leads_df()
+    _pipe = pipeline_to_df()
+    _ativos = _pipe[_pipe["Status"] != "Declinado"] if not _pipe.empty else pd.DataFrame()
+
+    # ── TABS ──
+    tab_resumo, tab_pipe, tab_rec, tab_desp, tab_fluxo, tab_leads, tab_indic = st.tabs([
+        "Resumo", "Pipeline", "Receitas", "Despesas", "Fluxo de Caixa", "Leads", "Indicadores",
+    ])
+
+    # ━━━━━━ TAB RESUMO ━━━━━━
+    with tab_resumo:
+        st.markdown("### Resumo Executivo — 2026")
+
+        r1, r2, r3, r4 = st.columns(4)
+        r1.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(_kpis["pipe_total"])}</div><div class="metric-label">Pipeline Total ({_kpis["pipe_count"]} deals)</div></div>', unsafe_allow_html=True)
+        r2.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(_kpis["rec_recebida"])}</div><div class="metric-label">Receita Recebida</div></div>', unsafe_allow_html=True)
+        r3.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(_kpis["saldo_atual"])}</div><div class="metric-label">Saldo Banco C6</div></div>', unsafe_allow_html=True)
+        r4.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(_kpis["burn_rate"])}/mês</div><div class="metric-label">Burn Rate</div></div>', unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        r5, r6, r7, r8 = st.columns(4)
+        r5.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(_kpis["rec_confirmada"])}</div><div class="metric-label">Receita Confirmada</div></div>', unsafe_allow_html=True)
+        r6.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(_kpis["rec_prevista"])}</div><div class="metric-label">Receita Prevista</div></div>', unsafe_allow_html=True)
+        r7.markdown(f'<div class="metric-card"><div class="metric-value">{_kpis["runway_meses"]:.1f} meses</div><div class="metric-label">Runway</div></div>', unsafe_allow_html=True)
+        r8.markdown(f'<div class="metric-card"><div class="metric-value">{_kpis["leads_ativos"]}</div><div class="metric-label">Leads Ativos</div></div>', unsafe_allow_html=True)
+
+        # Receita pipeline: realizada + confirmada + prevista
+        st.markdown("---")
+        st.markdown("### Funil de Receita 2026")
+        funil_data = pd.DataFrame([
+            {"Estágio": "Recebido", "Valor": _kpis["rec_recebida"]},
+            {"Estágio": "Confirmado", "Valor": _kpis["rec_confirmada"]},
+            {"Estágio": "Previsto", "Valor": _kpis["rec_prevista"]},
+        ])
+        fig_funil = px.bar(funil_data, x="Estágio", y="Valor", color="Estágio",
+                           color_discrete_map={"Recebido": GREEN, "Confirmado": "#1E88E5", "Previsto": GRAY},
+                           text_auto=True)
+        fig_funil.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                                height=300, showlegend=False, margin=dict(l=0,r=0,t=10,b=0))
+        fig_funil.update_yaxes(tickformat=",.0s")
+        fig_funil.update_traces(texttemplate='R$ %{y:,.0f}', textposition='outside')
+        st.plotly_chart(fig_funil, use_container_width=True)
+
+    # ━━━━━━ TAB PIPELINE ━━━━━━
+    with tab_pipe:
+        st.markdown("### Pipeline — Deals Ativos")
+
+        if not _ativos.empty:
+            # KPIs
+            pk1, pk2, pk3, pk4 = st.columns(4)
+            pk1.metric("Deals Ativos", len(_ativos))
+            _quentes = len(_ativos[_ativos["Status"] == "Quente"]) if "Status" in _ativos.columns else 0
+            pk2.metric("Quentes", _quentes)
+            pk3.metric("Pipeline Total", fmt(_ativos["Valor"].sum()))
+            _ticket = _ativos["Valor"].dropna()
+            pk4.metric("Ticket Médio", fmt(_ticket.mean()) if len(_ticket) > 0 else "—")
+
+            # Deals por status
+            st.markdown("---")
+            col_ps, col_pt = st.columns(2)
+            with col_ps:
+                st.markdown("##### Por Status")
+                status_ct = _ativos["Status"].value_counts().reset_index()
+                status_ct.columns = ["Status", "Deals"]
+                _status_colors = {"Quente": "#E53935", "Morno": "#FB8C00", "Frio": "#1E88E5",
+                                  "TS Assinado - enviado Operações": GREEN}
+                fig_st = px.pie(status_ct, values="Deals", names="Status", hole=0.45,
+                                color="Status", color_discrete_map=_status_colors)
+                fig_st.update_layout(height=280, margin=dict(l=0,r=0,t=10,b=0),
+                                     plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+                st.plotly_chart(fig_st, use_container_width=True)
+
+            with col_pt:
+                st.markdown("##### Por Tipo de Operação")
+                if "Tipo" in _ativos.columns:
+                    tipo_ct = _ativos.groupby("Tipo")["Valor"].agg(["sum", "count"]).reset_index()
+                    tipo_ct.columns = ["Tipo", "Volume", "Deals"]
+                    tipo_ct = tipo_ct.sort_values("Volume", ascending=True)
+                    fig_tipo = px.bar(tipo_ct, y="Tipo", x="Volume", orientation="h",
+                                      text="Deals", color_discrete_sequence=[GREEN])
+                    fig_tipo.update_layout(height=280, margin=dict(l=0,r=20,t=10,b=0),
+                                           plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+                    fig_tipo.update_xaxes(tickformat=",.0s")
+                    fig_tipo.update_traces(texttemplate='%{text} deals', textposition='auto')
+                    st.plotly_chart(fig_tipo, use_container_width=True)
+
+            # Deals por sócio
+            st.markdown("---")
+            st.markdown("##### Deals por Sócio")
+            if "Sócio" in _ativos.columns:
+                socio_ct = _ativos.groupby("Sócio").agg(
+                    deals=("Cliente", "count"),
+                    volume=("Valor", "sum"),
+                ).reset_index().sort_values("volume", ascending=False)
+                for _, sr in socio_ct.iterrows():
+                    st.markdown(f"""
+                    <div style="background:white;border-radius:6px;padding:0.7rem 1rem;margin-bottom:0.4rem;
+                                border-left:4px solid {GREEN};display:flex;justify-content:space-between;align-items:center;">
+                        <div><strong>{sr['Sócio'] or '—'}</strong></div>
+                        <div style="text-align:right;color:{NAVY};font-weight:600;">
+                            {sr['deals']} deals &nbsp;·&nbsp; {fmt(sr['volume'])}
+                        </div>
+                    </div>""", unsafe_allow_html=True)
+
+            # Tabela completa
+            st.markdown("---")
+            st.markdown("##### Todos os Deals")
+            tbl_p = _ativos[["Cliente", "Status", "Tipo", "Valor", "Sócio", "Instrumento"]].copy()
+            tbl_p["Valor"] = tbl_p["Valor"].apply(fmt)
+            st.dataframe(tbl_p, use_container_width=True, height=400)
+        else:
+            st.info("Nenhum deal ativo no pipeline.")
+
+    # ━━━━━━ TAB RECEITAS ━━━━━━
+    with tab_rec:
+        st.markdown("### Receitas — 2026")
+
+        if not _rec.empty:
+            rec_2026 = _rec[_rec["ano"] == "2026"].copy() if "ano" in _rec.columns else _rec.copy()
+
+            rk1, rk2, rk3, rk4 = st.columns(4)
+            _r_bruto = rec_2026["valor_bruto"].sum() if "valor_bruto" in rec_2026.columns else 0
+            _r_liq = rec_2026["valor_liq"].sum() if "valor_liq" in rec_2026.columns else 0
+            _r_recebido = rec_2026[rec_2026["status"] == "Recebido"]["valor_liq"].sum() if "status" in rec_2026.columns else 0
+            _r_finder = rec_2026["fee_finder_valor"].sum() if "fee_finder_valor" in rec_2026.columns and rec_2026["fee_finder_valor"].notna().any() else 0
+            rk1.metric("Receita Bruta", fmt(_r_bruto))
+            rk2.metric("Líquido ZYN", fmt(_r_liq))
+            rk3.metric("Recebido", fmt(_r_recebido))
+            rk4.metric("Fee Finders", fmt(_r_finder))
+
+            # Por mês
+            st.markdown("---")
+            col_rm, col_rs = st.columns(2)
+            with col_rm:
+                st.markdown("##### Receita por Mês")
+                if "mes" in rec_2026.columns:
+                    from src.notion_gestao import MESES_ORDER
+                    rec_mes = rec_2026.groupby("mes")["valor_liq"].sum().reset_index()
+                    rec_mes.columns = ["Mês", "Líquido"]
+                    rec_mes["_idx"] = rec_mes["Mês"].apply(lambda m: MESES_ORDER.index(m) if m in MESES_ORDER else 99)
+                    rec_mes = rec_mes.sort_values("_idx").drop(columns=["_idx"])
+                    fig_rm = px.bar(rec_mes, x="Mês", y="Líquido", color_discrete_sequence=[GREEN])
+                    fig_rm.update_layout(height=300, margin=dict(l=0,r=0,t=10,b=0),
+                                         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+                    fig_rm.update_yaxes(tickformat=",.0s")
+                    st.plotly_chart(fig_rm, use_container_width=True)
+
+            with col_rs:
+                st.markdown("##### Por Status")
+                if "status" in rec_2026.columns:
+                    rec_st = rec_2026.groupby("status")["valor_liq"].sum().reset_index()
+                    rec_st.columns = ["Status", "Valor"]
+                    _rec_colors = {"Recebido": GREEN, "Confirmado": "#1E88E5", "Previsto": "#FB8C00", "Atrasado": "#E53935", "Cancelado": GRAY}
+                    fig_rs = px.pie(rec_st, values="Valor", names="Status", hole=0.45,
+                                    color="Status", color_discrete_map=_rec_colors)
+                    fig_rs.update_layout(height=300, margin=dict(l=0,r=0,t=10,b=0),
+                                         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+                    st.plotly_chart(fig_rs, use_container_width=True)
+
+            # Por produto
+            st.markdown("---")
+            col_rp, col_rsoc = st.columns(2)
+            with col_rp:
+                st.markdown("##### Por Produto")
+                if "produto" in rec_2026.columns:
+                    rec_prod = rec_2026.groupby("produto")["valor_liq"].sum().reset_index()
+                    rec_prod.columns = ["Produto", "Líquido"]
+                    rec_prod = rec_prod.sort_values("Líquido", ascending=True)
+                    fig_rp = px.bar(rec_prod, y="Produto", x="Líquido", orientation="h",
+                                     color_discrete_sequence=[GREEN])
+                    fig_rp.update_layout(height=300, margin=dict(l=0,r=20,t=10,b=0),
+                                         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+                    fig_rp.update_xaxes(tickformat=",.0s")
+                    st.plotly_chart(fig_rp, use_container_width=True)
+
+            with col_rsoc:
+                st.markdown("##### Por Sócio")
+                if "socio" in rec_2026.columns:
+                    rec_soc = rec_2026.groupby("socio")["valor_liq"].sum().reset_index()
+                    rec_soc.columns = ["Sócio", "Líquido"]
+                    rec_soc = rec_soc.sort_values("Líquido", ascending=False)
+                    fig_rsoc = px.pie(rec_soc, values="Líquido", names="Sócio", hole=0.45,
+                                      color_discrete_sequence=CHART_COLORS)
+                    fig_rsoc.update_layout(height=300, margin=dict(l=0,r=0,t=10,b=0),
+                                           plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+                    st.plotly_chart(fig_rsoc, use_container_width=True)
+
+            # Tabela detalhada
+            st.markdown("---")
+            st.markdown("##### Detalhe das Receitas")
+            tbl_r = rec_2026[["cliente", "tipo_receita", "produto", "valor_bruto", "valor_liq",
+                              "status", "socio", "mes", "originador"]].copy()
+            tbl_r["valor_bruto"] = tbl_r["valor_bruto"].apply(fmt)
+            tbl_r["valor_liq"] = tbl_r["valor_liq"].apply(fmt)
+            tbl_r = tbl_r.rename(columns={
+                "cliente": "Operação", "tipo_receita": "Tipo", "produto": "Produto",
+                "valor_bruto": "Bruto", "valor_liq": "Líq. ZYN", "status": "Status",
+                "socio": "Sócio", "mes": "Mês", "originador": "Finder",
+            })
+            st.dataframe(tbl_r, use_container_width=True, height=400)
+        else:
+            st.info("Nenhuma receita carregada.")
+
+    # ━━━━━━ TAB DESPESAS ━━━━━━
+    with tab_desp:
+        st.markdown("### Despesas — 2026")
+
+        if not _desp.empty:
+            desp_2026 = _desp[_desp["ano"] == "2026"].copy() if "ano" in _desp.columns else _desp.copy()
+
+            dk1, dk2, dk3, dk4 = st.columns(4)
+            _d_pago = desp_2026[desp_2026["status"] == "Pago"]["valor"].sum() if "status" in desp_2026.columns else 0
+            _d_pendente = desp_2026[desp_2026["status"] == "Pendente"]["valor"].sum() if "status" in desp_2026.columns else 0
+            _d_total = desp_2026["valor"].sum() if "valor" in desp_2026.columns else 0
+            _meses_d = desp_2026[desp_2026["status"] == "Pago"]["mes"].nunique() if "mes" in desp_2026.columns else 1
+            dk1.metric("Total Despesas", fmt(_d_total))
+            dk2.metric("Pago", fmt(_d_pago))
+            dk3.metric("Pendente", fmt(_d_pendente))
+            dk4.metric("Burn Rate /mês", fmt(_d_pago / max(_meses_d, 1)))
+
+            # Por categoria
+            st.markdown("---")
+            col_dc, col_dm = st.columns(2)
+            with col_dc:
+                st.markdown("##### Por Categoria")
+                if "categoria" in desp_2026.columns:
+                    desp_cat = desp_2026.groupby("categoria")["valor"].sum().reset_index()
+                    desp_cat.columns = ["Categoria", "Valor"]
+                    desp_cat = desp_cat.sort_values("Valor", ascending=True)
+                    fig_dc = px.bar(desp_cat, y="Categoria", x="Valor", orientation="h",
+                                     color_discrete_sequence=["#E53935"])
+                    fig_dc.update_layout(height=350, margin=dict(l=0,r=20,t=10,b=0),
+                                         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+                    fig_dc.update_xaxes(tickformat=",.0s")
+                    st.plotly_chart(fig_dc, use_container_width=True)
+
+            with col_dm:
+                st.markdown("##### Por Mês")
+                if "mes" in desp_2026.columns:
+                    from src.notion_gestao import MESES_ORDER
+                    desp_mes = desp_2026.groupby("mes")["valor"].sum().reset_index()
+                    desp_mes.columns = ["Mês", "Valor"]
+                    desp_mes["_idx"] = desp_mes["Mês"].apply(lambda m: MESES_ORDER.index(m) if m in MESES_ORDER else 99)
+                    desp_mes = desp_mes.sort_values("_idx").drop(columns=["_idx"])
+                    fig_dm = px.bar(desp_mes, x="Mês", y="Valor", color_discrete_sequence=["#E53935"])
+                    fig_dm.update_layout(height=350, margin=dict(l=0,r=0,t=10,b=0),
+                                         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+                    fig_dm.update_yaxes(tickformat=",.0s")
+                    st.plotly_chart(fig_dm, use_container_width=True)
+
+            # Top despesas
+            st.markdown("---")
+            st.markdown("##### Maiores Despesas")
+            tbl_d = desp_2026[["descricao", "categoria", "valor", "status", "fornecedor", "mes"]].copy()
+            tbl_d = tbl_d.sort_values("valor", ascending=False)
+            tbl_d["valor"] = tbl_d["valor"].apply(fmt)
+            tbl_d = tbl_d.rename(columns={
+                "descricao": "Descrição", "categoria": "Categoria", "valor": "Valor",
+                "status": "Status", "fornecedor": "Fornecedor", "mes": "Mês",
+            })
+            st.dataframe(tbl_d, use_container_width=True, height=400)
+        else:
+            st.info("Nenhuma despesa carregada.")
+
+    # ━━━━━━ TAB FLUXO DE CAIXA ━━━━━━
+    with tab_fluxo:
+        st.markdown("### Fluxo de Caixa — 2026")
+
+        if not _fluxo.empty:
+            fk1, fk2, fk3, fk4 = st.columns(4)
+            _saldo_banco = _fluxo[_fluxo["saldo_banco"].notna()]["saldo_banco"].iloc[-1] if _fluxo["saldo_banco"].notna().any() else 0
+            _rec_prev_total = _fluxo["receita_prevista"].sum() if "receita_prevista" in _fluxo.columns else 0
+            _desp_prev_total = _fluxo["despesa_prevista"].sum() if "despesa_prevista" in _fluxo.columns else 0
+            _rec_real_total = _fluxo["receita_realizada"].sum() if "receita_realizada" in _fluxo.columns else 0
+            fk1.metric("Saldo C6 Atual", fmt(_saldo_banco))
+            fk2.metric("Receita Prev. Anual", fmt(_rec_prev_total))
+            fk3.metric("Receita Real. YTD", fmt(_rec_real_total))
+            fk4.metric("Despesa Prev. Anual", fmt(_desp_prev_total))
+
+            # Gráfico receita vs despesa por mês
+            st.markdown("---")
+            st.markdown("##### Receita vs Despesa Mensal")
+            fluxo_chart = _fluxo[["mes_ano", "receita_prevista", "receita_realizada",
+                                   "despesa_prevista", "despesa_realizada"]].copy()
+            fluxo_chart = fluxo_chart.fillna(0)
+
+            fig_fluxo = go.Figure()
+            fig_fluxo.add_trace(go.Bar(x=fluxo_chart["mes_ano"], y=fluxo_chart["receita_realizada"],
+                                        name="Receita Realizada", marker_color=GREEN))
+            fig_fluxo.add_trace(go.Bar(x=fluxo_chart["mes_ano"], y=fluxo_chart["receita_prevista"],
+                                        name="Receita Prevista", marker_color="rgba(46,125,79,0.3)"))
+            fig_fluxo.add_trace(go.Bar(x=fluxo_chart["mes_ano"], y=[-v for v in fluxo_chart["despesa_realizada"]],
+                                        name="Despesa Realizada", marker_color="#E53935"))
+            fig_fluxo.add_trace(go.Bar(x=fluxo_chart["mes_ano"], y=[-v for v in fluxo_chart["despesa_prevista"]],
+                                        name="Despesa Prevista", marker_color="rgba(229,57,53,0.3)"))
+            fig_fluxo.update_layout(
+                barmode="overlay", height=400,
+                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                margin=dict(l=0,r=20,t=10,b=0),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+            )
+            fig_fluxo.update_yaxes(tickformat=",.0s")
+            st.plotly_chart(fig_fluxo, use_container_width=True)
+
+            # Saldo acumulado
+            if _fluxo["saldo_acumulado"].notna().any():
+                st.markdown("##### Saldo Acumulado")
+                fig_saldo = go.Figure()
+                fig_saldo.add_trace(go.Scatter(
+                    x=_fluxo["mes_ano"], y=_fluxo["saldo_acumulado"],
+                    mode="lines+markers", name="Saldo Acumulado",
+                    line=dict(color=NAVY, width=3), marker=dict(size=8),
+                ))
+                if _fluxo["saldo_banco"].notna().any():
+                    fig_saldo.add_trace(go.Scatter(
+                        x=_fluxo[_fluxo["saldo_banco"].notna()]["mes_ano"],
+                        y=_fluxo[_fluxo["saldo_banco"].notna()]["saldo_banco"],
+                        mode="markers", name="Saldo Banco C6",
+                        marker=dict(color=GREEN, size=12, symbol="diamond"),
+                    ))
+                fig_saldo.update_layout(height=300, margin=dict(l=0,r=20,t=10,b=0),
+                                         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+                fig_saldo.update_yaxes(tickformat=",.0s")
+                st.plotly_chart(fig_saldo, use_container_width=True)
+
+            # Tabela
+            st.markdown("---")
+            st.markdown("##### Detalhe Mensal")
+            tbl_f = _fluxo[["mes_ano", "receita_prevista", "receita_realizada",
+                             "despesa_prevista", "despesa_realizada", "saldo_mes",
+                             "saldo_acumulado", "saldo_banco", "status"]].copy()
+            for c in ["receita_prevista", "receita_realizada", "despesa_prevista",
+                       "despesa_realizada", "saldo_mes", "saldo_acumulado", "saldo_banco"]:
+                if c in tbl_f.columns:
+                    tbl_f[c] = tbl_f[c].apply(fmt)
+            tbl_f = tbl_f.rename(columns={
+                "mes_ano": "Mês", "receita_prevista": "Rec. Prev.", "receita_realizada": "Rec. Real.",
+                "despesa_prevista": "Desp. Prev.", "despesa_realizada": "Desp. Real.",
+                "saldo_mes": "Saldo Mês", "saldo_acumulado": "Saldo Acum.",
+                "saldo_banco": "Saldo C6", "status": "Status",
+            })
+            st.dataframe(tbl_f, use_container_width=True)
+        else:
+            st.info("Nenhum dado de fluxo de caixa.")
+
+    # ━━━━━━ TAB LEADS ━━━━━━
+    with tab_leads:
+        st.markdown("### Leads & Prospecção")
+
+        if not _leads.empty:
+            lk1, lk2, lk3, lk4 = st.columns(4)
+            lk1.metric("Total Leads", len(_leads))
+            _l_andamento = len(_leads[_leads["status"].isin(["Em andamento", "Nao iniciada", "Não iniciada"])]) if "status" in _leads.columns else 0
+            _l_convertido = len(_leads[_leads["status"] == "Enviado para Pipeline"]) if "status" in _leads.columns else 0
+            _l_declinado = len(_leads[_leads["status"] == "Declinado"]) if "status" in _leads.columns else 0
+            lk2.metric("Em Andamento", _l_andamento)
+            lk3.metric("Convertidos", _l_convertido)
+            lk4.metric("Declinados", _l_declinado)
+
+            # Funnel
+            st.markdown("---")
+            col_lf, col_ls = st.columns(2)
+            with col_lf:
+                st.markdown("##### Funil de Leads")
+                if "status" in _leads.columns:
+                    lead_st = _leads["status"].value_counts().reset_index()
+                    lead_st.columns = ["Status", "Leads"]
+                    fig_lf = px.bar(lead_st, x="Status", y="Leads", color="Status",
+                                     color_discrete_sequence=CHART_COLORS)
+                    fig_lf.update_layout(height=300, margin=dict(l=0,r=0,t=10,b=0),
+                                         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                                         showlegend=False)
+                    st.plotly_chart(fig_lf, use_container_width=True)
+
+            with col_ls:
+                st.markdown("##### Por Setor")
+                if "setor" in _leads.columns and _leads["setor"].notna().any():
+                    lead_setor = _leads[_leads["setor"] != ""]["setor"].value_counts().reset_index()
+                    lead_setor.columns = ["Setor", "Leads"]
+                    fig_ls = px.pie(lead_setor, values="Leads", names="Setor", hole=0.45,
+                                    color_discrete_sequence=CHART_COLORS)
+                    fig_ls.update_layout(height=300, margin=dict(l=0,r=0,t=10,b=0),
+                                         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+                    st.plotly_chart(fig_ls, use_container_width=True)
+
+            # Por origem e sócio
+            st.markdown("---")
+            col_lo, col_lsoc = st.columns(2)
+            with col_lo:
+                st.markdown("##### Por Origem")
+                if "origem" in _leads.columns and _leads["origem"].notna().any():
+                    lead_orig = _leads[_leads["origem"] != ""]["origem"].value_counts().reset_index()
+                    lead_orig.columns = ["Origem", "Leads"]
+                    fig_lo = px.bar(lead_orig, x="Origem", y="Leads", color_discrete_sequence=[GREEN])
+                    fig_lo.update_layout(height=280, margin=dict(l=0,r=0,t=10,b=0),
+                                         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+                    st.plotly_chart(fig_lo, use_container_width=True)
+
+            with col_lsoc:
+                st.markdown("##### Por Sócio")
+                if "socio" in _leads.columns and _leads["socio"].notna().any():
+                    lead_soc = _leads[_leads["socio"] != ""]["socio"].value_counts().reset_index()
+                    lead_soc.columns = ["Sócio", "Leads"]
+                    fig_lsoc = px.pie(lead_soc, values="Leads", names="Sócio", hole=0.45,
+                                      color_discrete_sequence=CHART_COLORS)
+                    fig_lsoc.update_layout(height=280, margin=dict(l=0,r=0,t=10,b=0),
+                                           plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+                    st.plotly_chart(fig_lsoc, use_container_width=True)
+
+            # Tabela
+            st.markdown("---")
+            st.markdown("##### Todos os Leads")
+            lead_cols = ["cliente", "status", "setor", "socio", "ticket", "volume",
+                         "probabilidade", "urgencia", "origem", "originacao"]
+            avail_lc = [c for c in lead_cols if c in _leads.columns]
+            tbl_l = _leads[avail_lc].copy()
+            if "ticket" in tbl_l.columns:
+                tbl_l["ticket"] = tbl_l["ticket"].apply(fmt)
+            if "volume" in tbl_l.columns:
+                tbl_l["volume"] = tbl_l["volume"].apply(fmt)
+            tbl_l = tbl_l.rename(columns={
+                "cliente": "Cliente", "status": "Status", "setor": "Setor",
+                "socio": "Sócio", "ticket": "Ticket Est.", "volume": "Volume Op.",
+                "probabilidade": "Prob.", "urgencia": "Urgência", "origem": "Origem",
+                "originacao": "Originação",
+            })
+            st.dataframe(tbl_l, use_container_width=True, height=400)
+        else:
+            st.info("Nenhum lead carregado.")
+
+    # ━━━━━━ TAB INDICADORES ━━━━━━
+    with tab_indic:
+        st.markdown("### Indicadores de Performance")
+
+        ik1, ik2, ik3, ik4 = st.columns(4)
+        ik1.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(_kpis["fee_medio"])}</div><div class="metric-label">Fee Médio Líq./Deal</div></div>', unsafe_allow_html=True)
+
+        # Taxa de conversão leads -> pipeline
+        _conv_rate = (_kpis["leads_convertidos"] / max(_kpis["leads_total"], 1) * 100)
+        ik2.markdown(f'<div class="metric-card"><div class="metric-value">{_conv_rate:.0f}%</div><div class="metric-label">Conversão Lead → Pipe</div></div>', unsafe_allow_html=True)
+
+        # Receita por sócio
+        _rec_por_socio = _kpis["rec_recebida"] / 3 if _kpis["rec_recebida"] > 0 else 0
+        ik3.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(_rec_por_socio)}</div><div class="metric-label">Receita/Sócio (média)</div></div>', unsafe_allow_html=True)
+
+        # ROI: receita / despesa
+        _roi = _kpis["rec_recebida"] / max(_kpis["desp_paga"], 1)
+        ik4.markdown(f'<div class="metric-card"><div class="metric-value">{_roi:.1f}x</div><div class="metric-label">ROI (Receita/Despesa)</div></div>', unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Gráfico: Receita vs Despesa acumulada
+        st.markdown("---")
+        st.markdown("##### Receita vs Despesa — Acumulado Mensal")
+        if not _rec.empty and not _desp.empty:
+            from src.notion_gestao import MESES_ORDER
+            rec_2026 = _rec[_rec["ano"] == "2026"].copy() if "ano" in _rec.columns else _rec.copy()
+            desp_2026 = _desp[_desp["ano"] == "2026"].copy() if "ano" in _desp.columns else _desp.copy()
+
+            rec_m = rec_2026.groupby("mes")["valor_liq"].sum().reset_index()
+            rec_m.columns = ["Mês", "Receita"]
+            desp_m = desp_2026.groupby("mes")["valor"].sum().reset_index()
+            desp_m.columns = ["Mês", "Despesa"]
+
+            merged = pd.merge(rec_m, desp_m, on="Mês", how="outer").fillna(0)
+            merged["_idx"] = merged["Mês"].apply(lambda m: MESES_ORDER.index(m) if m in MESES_ORDER else 99)
+            merged = merged.sort_values("_idx").drop(columns=["_idx"])
+            merged["Rec. Acum."] = merged["Receita"].cumsum()
+            merged["Desp. Acum."] = merged["Despesa"].cumsum()
+
+            fig_acum = go.Figure()
+            fig_acum.add_trace(go.Scatter(x=merged["Mês"], y=merged["Rec. Acum."],
+                                           mode="lines+markers", name="Receita Acum.",
+                                           line=dict(color=GREEN, width=3)))
+            fig_acum.add_trace(go.Scatter(x=merged["Mês"], y=merged["Desp. Acum."],
+                                           mode="lines+markers", name="Despesa Acum.",
+                                           line=dict(color="#E53935", width=3)))
+            fig_acum.update_layout(height=350, margin=dict(l=0,r=20,t=10,b=0),
+                                    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+            fig_acum.update_yaxes(tickformat=",.0s")
+            st.plotly_chart(fig_acum, use_container_width=True)
+
+        # Quadro resumo
+        st.markdown("---")
+        st.markdown("##### Quadro Resumo")
+        resumo_data = [
+            {"Indicador": "Pipeline Total", "Valor": fmt(_kpis["pipe_total"]), "Obs": f"{_kpis['pipe_count']} deals ativos"},
+            {"Indicador": "Receita Bruta 2026", "Valor": fmt(_kpis["rec_total_bruto"]), "Obs": "Todas as receitas"},
+            {"Indicador": "Receita Líquida Recebida", "Valor": fmt(_kpis["rec_recebida"]), "Obs": "Efetivamente recebido"},
+            {"Indicador": "Receita Confirmada", "Valor": fmt(_kpis["rec_confirmada"]), "Obs": "Aguardando recebimento"},
+            {"Indicador": "Receita Prevista", "Valor": fmt(_kpis["rec_prevista"]), "Obs": "Projeção de closings"},
+            {"Indicador": "Despesas Pagas", "Valor": fmt(_kpis["desp_paga"]), "Obs": "YTD efetivo"},
+            {"Indicador": "Burn Rate Mensal", "Valor": fmt(_kpis["burn_rate"]), "Obs": "Média mensal paga"},
+            {"Indicador": "Saldo Banco C6", "Valor": fmt(_kpis["saldo_atual"]), "Obs": "Último saldo confirmado"},
+            {"Indicador": "Runway", "Valor": f"{_kpis['runway_meses']:.1f} meses", "Obs": "Saldo / Burn Rate"},
+            {"Indicador": "Leads Ativos", "Valor": str(_kpis["leads_ativos"]), "Obs": f"de {_kpis['leads_total']} total"},
+            {"Indicador": "Conversão Lead→Pipe", "Valor": f"{_conv_rate:.0f}%", "Obs": f"{_kpis['leads_convertidos']} convertidos"},
+        ]
+        st.dataframe(pd.DataFrame(resumo_data), use_container_width=True, hide_index=True)
+
+
+# ══════════════════════════════════════════
 # VISÃO GERAL
 # ══════════════════════════════════════════
-if page == "Visão Geral":
+elif page == "Visão Geral":
     st.markdown("""<div class="main-header">
         <h1>Visão Geral do Mercado</h1>
         <p>Renda Fixa Estruturada — Dados CVM (últimos meses disponíveis)</p>
@@ -798,14 +1331,6 @@ elif page == "Gestoras":
                 })
                 st.dataframe(em_fundo_disp[["Emissor", "CNPJ Emissor", "Vol.", "Papéis", "Tipos", "Venc. Máx"]], use_container_width=True)
 
-            # Chart de posições por tipo
-            by_type = f_positions.groupby("tipo_ativo")["vl_posicao"].sum().reset_index()
-            by_type.columns = ["Tipo", "Volume"]
-            if len(by_type) > 1:
-                fig = px.pie(by_type, values="Volume", names="Tipo", hole=0.4,
-                             color_discrete_sequence=CHART_COLORS)
-                fig.update_layout(height=250, margin=dict(l=0, r=0, t=20, b=0))
-                st.plotly_chart(fig, use_container_width=True)
 
 
 # ══════════════════════════════════════════
@@ -1489,8 +2014,8 @@ elif page == "Devedores":
 # ══════════════════════════════════════════
 elif page == "Fundos com Caixa":
     st.markdown("""<div class="main-header">
-        <h1>Fundos com Caixa Disponível</h1>
-        <p>Fundos com maior capacidade de alocação em RF Estruturada (PL - Alocação atual)</p>
+        <h1>Fundos — Capacidade Estimada</h1>
+        <p>Capacidade adicional estimada de alocação em crédito privado (target = % atual + 10pp, max 80%)</p>
     </div>""", unsafe_allow_html=True)
 
     positions = load_positions()
@@ -1512,24 +2037,31 @@ elif page == "Fundos com Caixa":
 
     fundos_raw = fundos_raw[fundos_raw["pl"].notna() & (fundos_raw["pl"] > 0)].copy()
     fundos_raw["pct_rf"] = (fundos_raw["vol_rf"] / fundos_raw["pl"] * 100).round(1)
-    fundos_raw["caixa"] = fundos_raw["pl"] - fundos_raw["vol_rf"]
+
+    # Capacidade Estimada: assume fundo pode alocar +10pp além do atual, cap 80%
+    _pct_dec = fundos_raw["pct_rf"] / 100
+    _target = (_pct_dec + 0.10).clip(upper=0.80)
+    fundos_raw["caixa"] = (fundos_raw["pl"] * _target - fundos_raw["vol_rf"]).clip(lower=0)
 
     # --- Filtros ---
     st.markdown("### Filtros")
-    fc1, fc2, fc3, fc4 = st.columns(4)
+    fc1, fc2, fc3, fc4, fc5 = st.columns(5)
     with fc1:
         caixa_tipo_f = st.multiselect("Tipo de Ativo que compra", ["NC", "CRI", "CRA", "CPR-F", "DEBENTURE"], key="cx_tipo")
     with fc2:
-        caixa_min = st.number_input("Caixa mínimo (R$ M)", value=10, step=10, key="cx_min")
+        caixa_min = st.number_input("Capac. mínima (R$ M)", value=10, step=10, key="cx_min")
     with fc3:
-        caixa_busca = st.text_input("Buscar fundo/gestora", "", key="cx_busca")
+        min_pct = st.number_input("% mín. alocado RF", value=5.0, step=1.0, key="cx_pct_min")
     with fc4:
+        caixa_busca = st.text_input("Buscar fundo/gestora", "", key="cx_busca")
+    with fc5:
         classe_options = sorted(fundos_raw["classe"].dropna().unique().tolist())
         caixa_classe = st.multiselect("Classe ANBIMA", classe_options, key="cx_classe")
 
     fundos_f = fundos_raw.copy()
+    # Filtro mínimo % alocação em RF (remove fundos DI, equity etc.)
+    fundos_f = fundos_f[fundos_f["pct_rf"] >= min_pct]
     if caixa_tipo_f:
-        # Filter funds that buy at least one of the selected types
         for t in caixa_tipo_f:
             fundos_f = fundos_f[fundos_f["tipos"].str.contains(t, na=False)]
     if caixa_min > 0:
@@ -1548,19 +2080,20 @@ elif page == "Fundos com Caixa":
     st.markdown("<br>", unsafe_allow_html=True)
     k1, k2, k3, k4 = st.columns(4)
     k1.markdown(f'<div class="metric-card"><div class="metric-value">{len(fundos_f)}</div><div class="metric-label">Fundos</div></div>', unsafe_allow_html=True)
-    k2.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(fundos_f["caixa"].sum())}</div><div class="metric-label">Caixa Total Disponível</div></div>', unsafe_allow_html=True)
+    k2.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(fundos_f["caixa"].sum())}</div><div class="metric-label">Capacidade Estimada Total</div></div>', unsafe_allow_html=True)
     k3.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(fundos_f["pl"].sum())}</div><div class="metric-label">PL Total</div></div>', unsafe_allow_html=True)
     k4.markdown(f'<div class="metric-card"><div class="metric-value">{fundos_f["gestora"].nunique()}</div><div class="metric-label">Gestoras</div></div>', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
     # --- Top 20 chart ---
-    st.subheader("Top 20 Fundos com Maior Caixa Disponível")
+    st.subheader("Top 20 Fundos com Maior Capacidade Estimada")
+    st.caption("Capacidade = PL × (% atual + 10pp, max 80%) − vol. atual em RF. Filtro padrão exclui fundos com < 5% em crédito privado.")
     top20_cx = fundos_f.head(20)
     fig_cx = px.bar(
         top20_cx, x="nome_fundo", y="caixa",
         color="pct_rf", color_continuous_scale=["#E0E0E0", GREEN],
-        labels={"nome_fundo": "Fundo", "caixa": "Caixa Disponível", "pct_rf": "% RF"},
+        labels={"nome_fundo": "Fundo", "caixa": "Capacidade Est.", "pct_rf": "% RF"},
         hover_data=["gestora", "pl", "vol_rf"],
     )
     fig_cx.update_layout(
@@ -1574,7 +2107,7 @@ elif page == "Fundos com Caixa":
     st.subheader(f"Tabela — {len(fundos_f)} fundos")
     tbl_cx = fundos_f.head(500).copy()
     tbl_cx_exp = tbl_cx.copy()
-    tbl_cx["Caixa"] = tbl_cx["caixa"].apply(fmt)
+    tbl_cx["Capac. Est."] = tbl_cx["caixa"].apply(fmt)
     tbl_cx["PL"] = tbl_cx["pl"].apply(fmt)
     tbl_cx["Vol. RF"] = tbl_cx["vol_rf"].apply(fmt)
     tbl_cx["% RF"] = tbl_cx["pct_rf"].apply(lambda x: f"{x:.1f}%")
@@ -1585,13 +2118,13 @@ elif page == "Fundos com Caixa":
         "n_devedores": "Devedores",
     })
     st.dataframe(
-        tbl_cx[["CNPJ", "Fundo", "Gestora", "Caixa", "PL", "Vol. RF", "% RF",
+        tbl_cx[["CNPJ", "Fundo", "Gestora", "Capac. Est.", "PL", "Vol. RF", "% RF",
                 "Tipos que Compra", "Papéis", "Devedores", "Classe ANBIMA", "Público Alvo"]],
         use_container_width=True, height=450,
     )
     tbl_cx_exp = tbl_cx_exp.rename(columns={
         "cnpj_fundo": "CNPJ", "nome_fundo": "Fundo", "gestora": "Gestora",
-        "vol_rf": "Volume RF", "pl": "PL", "caixa": "Caixa Disponível",
+        "vol_rf": "Volume RF", "pl": "PL", "caixa": "Capacidade Estimada",
         "pct_rf": "% Alocado RF", "n_papeis": "Papéis", "tipos": "Tipos que Compra",
         "classe": "Classe ANBIMA", "publico": "Público Alvo", "administrador": "Administrador",
         "n_devedores": "Devedores",
@@ -1608,13 +2141,15 @@ elif page == "Fundos com Caixa":
 
         pl_f = f_pos["pl_fundo"].iloc[0] if "pl_fundo" in f_pos.columns and pd.notna(f_pos["pl_fundo"].iloc[0]) else 0
         vol_f = f_pos["vl_posicao"].sum()
-        caixa_f = pl_f - vol_f if pl_f > 0 else 0
+        pct_f = vol_f / pl_f if pl_f > 0 else 0
+        target_f = min(pct_f + 0.10, 0.80)
+        caixa_f = max(pl_f * target_f - vol_f, 0) if pl_f > 0 else 0
 
         dx1, dx2, dx3, dx4 = st.columns(4)
         dx1.metric("PL", fmt(pl_f))
         dx2.metric("Volume RF", fmt(vol_f))
-        dx3.metric("Caixa Disp.", fmt(caixa_f))
-        dx4.metric("% Alocado", f"{vol_f/pl_f*100:.1f}%" if pl_f > 0 else "—")
+        dx3.metric("Capac. Est.", fmt(caixa_f))
+        dx4.metric("% Alocado", f"{pct_f*100:.1f}%" if pl_f > 0 else "—")
 
         g_name = f_pos["gestora"].iloc[0] if "gestora" in f_pos.columns else "—"
         admin = f_pos["administrador"].iloc[0] if "administrador" in f_pos.columns and pd.notna(f_pos["administrador"].iloc[0]) else "—"
@@ -2028,6 +2563,34 @@ elif page == "Atualizar":
             <strong>Campos:</strong> Cliente, Status, Analisando, Valor, Sócio, Fase, Tipo
         </div>""", unsafe_allow_html=True)
 
+    # ── Sync Painel Executivo (Gestão) ──
+    st.markdown("---")
+    st.subheader("Sincronizar Painel Executivo (Notion)")
+    gestao_dt = gestao_sync_date()
+    st.info(f"Último sync do Painel: **{gestao_dt}**")
+    st.markdown("""
+    O Painel Executivo puxa dados de **6 databases** do Notion:
+    Receitas, Despesas, Fluxo de Caixa, Leads, Extrato Bancário e Pipeline.
+    """)
+
+    gest_col1, gest_col2 = st.columns([1, 2])
+    with gest_col1:
+        if st.button("🔄 Sync Painel Notion", type="primary", key="btn_sync_gestao"):
+            with st.spinner("Conectando ao Notion e lendo dados de gestão..."):
+                try:
+                    sync_gestao()
+                    st.success("✅ Dados de gestão sincronizados!")
+                    st.cache_data.clear()
+                except Exception as e:
+                    st.error(f"Erro: {e}")
+    with gest_col2:
+        st.markdown(f"""
+        <div style="font-size:0.8rem;color:{GRAY};padding-top:0.5rem;">
+            <strong>Fontes:</strong> 6 DBs Notion → gestao_cache.json<br>
+            <strong>Dados:</strong> Receitas, Despesas, Fluxo de Caixa, Leads, Extrato C6<br>
+            <strong>Frequência:</strong> Semanal automático + manual sob demanda
+        </div>""", unsafe_allow_html=True)
+
 
 # ══════════════════════════════════════════
 # PIPELINE (Notion)
@@ -2062,11 +2625,11 @@ elif page == "Pipeline":
     # Filters
     fc1, fc2, fc3 = st.columns(3)
     with fc1:
-        pipe_status_f = st.multiselect("Status", active["Status"].unique().tolist(), key="pipe_st")
+        pipe_status_f = st.multiselect("Status", sorted(active["Status"].dropna().unique().tolist()), key="pipe_st")
     with fc2:
-        pipe_socio_f = st.multiselect("Sócio", active["Sócio"].unique().tolist(), key="pipe_soc")
+        pipe_socio_f = st.multiselect("Sócio", sorted(active["Sócio"].dropna().unique().tolist()), key="pipe_soc")
     with fc3:
-        pipe_tipo_f = st.multiselect("Tipo Operação", sorted(active["Tipo"].unique().tolist()), key="pipe_tipo")
+        pipe_tipo_f = st.multiselect("Tipo Operação", sorted(active["Tipo"].dropna().unique().tolist()), key="pipe_tipo")
 
     disp = active.copy()
     if pipe_status_f:
@@ -2090,7 +2653,7 @@ elif page == "Pipeline":
             <div style="flex:1;min-width:200px;">
                 <div style="font-weight:600;font-size:1rem;color:{NAVY};">{row['Cliente']}</div>
                 <div style="font-size:0.78rem;color:{GRAY};margin-top:0.2rem;">
-                    {row['Tipo']} · {row['Instrumento']} · {row['Sócio']} · {row['Originador']}
+                    {row['Tipo'] or '—'} · {row['Instrumento'] if pd.notna(row.get('Instrumento')) and row['Instrumento'] else '—'} · {row['Sócio'] if pd.notna(row.get('Sócio')) and row['Sócio'] else '—'} · {row['Originador'] if pd.notna(row.get('Originador')) and row['Originador'] else '—'}
                 </div>
             </div>
             <div style="text-align:right;min-width:120px;">
@@ -2238,7 +2801,7 @@ elif page == "Pipeline x Investidores":
 elif page == "Oportunidades":
     st.markdown("""<div class="main-header">
         <h1>Oportunidades de Mercado</h1>
-        <p>Caixa disponível x Tipos de ativo — onde há demanda para originação</p>
+        <p>Capacidade estimada x Tipos de ativo — onde há demanda para originação</p>
     </div>""", unsafe_allow_html=True)
 
     positions = load_positions()
@@ -2253,7 +2816,13 @@ elif page == "Oportunidades":
         tipos=("tipo_ativo", lambda x: list(x.unique())),
     ).reset_index()
     fundos_opp = fundos_opp[fundos_opp["pl"].notna() & (fundos_opp["pl"] > 0)].copy()
-    fundos_opp["caixa"] = fundos_opp["pl"] - fundos_opp["vol_rf"]
+    fundos_opp["pct_rf"] = (fundos_opp["vol_rf"] / fundos_opp["pl"] * 100).round(1)
+    # Filtrar fundos com < 5% em RF (não são fundos de crédito)
+    fundos_opp = fundos_opp[fundos_opp["pct_rf"] >= 5.0].copy()
+    # Capacidade Estimada: target = atual + 10pp, max 80%
+    _pct_dec_opp = fundos_opp["pct_rf"] / 100
+    _target_opp = (_pct_dec_opp + 0.10).clip(upper=0.80)
+    fundos_opp["caixa"] = (fundos_opp["pl"] * _target_opp - fundos_opp["vol_rf"]).clip(lower=0)
 
     # Aggregate available cash by asset type
     tipo_demand = {}
@@ -2263,7 +2832,7 @@ elif page == "Oportunidades":
                 tipo_demand[t] = tipo_demand.get(t, 0) + row["caixa"]
 
     demand_df = pd.DataFrame([
-        {"Tipo Ativo": k, "Caixa Disponível": v}
+        {"Tipo Ativo": k, "Capacidade Estimada": v}
         for k, v in sorted(tipo_demand.items(), key=lambda x: -x[1])
     ])
 
@@ -2271,27 +2840,27 @@ elif page == "Oportunidades":
         # KPIs
         total_cash = fundos_opp[fundos_opp["caixa"] > 0]["caixa"].sum()
         k1, k2, k3 = st.columns(3)
-        k1.metric("Caixa Total", fmt(total_cash))
-        k2.metric("Fundos com Caixa", len(fundos_opp[fundos_opp["caixa"] > 0]))
+        k1.metric("Capacidade Total", fmt(total_cash))
+        k2.metric("Fundos com Capacidade", len(fundos_opp[fundos_opp["caixa"] > 0]))
         k3.metric("Gestoras", fundos_opp[fundos_opp["caixa"] > 0]["gestora"].nunique())
 
         st.markdown("---")
         st.subheader("Demanda por Tipo de Ativo")
-        st.markdown("*Quanto de caixa disponível existe em fundos que já compram cada tipo*")
+        st.markdown("*Capacidade estimada em fundos que já compram cada tipo (fundos com ≥5% alocado em RF)*")
 
-        fig_opp = px.bar(demand_df, x="Tipo Ativo", y="Caixa Disponível", color_discrete_sequence=[GREEN])
+        fig_opp = px.bar(demand_df, x="Tipo Ativo", y="Capacidade Estimada", color_discrete_sequence=[GREEN])
         fig_opp.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=400,
                               margin=dict(l=0,r=20,t=10,b=0))
         fig_opp.update_yaxes(tickformat=",.0s")
         st.plotly_chart(fig_opp, use_container_width=True)
 
         demand_disp = demand_df.copy()
-        demand_disp["Caixa Disponível"] = demand_disp["Caixa Disponível"].apply(fmt)
+        demand_disp["Capacidade Estimada"] = demand_disp["Capacidade Estimada"].apply(fmt)
         st.dataframe(demand_disp, use_container_width=True)
 
-    # Top gestoras com mais caixa
+    # Top gestoras com mais capacidade
     st.markdown("---")
-    st.subheader("Top Gestoras com Caixa para Alocação")
+    st.subheader("Top Gestoras com Capacidade para Alocação")
 
     gest_cash = fundos_opp[fundos_opp["caixa"] > 0].groupby("gestora").agg(
         caixa=("caixa", "sum"),
@@ -2303,12 +2872,12 @@ elif page == "Oportunidades":
         gest_cash["pct"] = (gest_cash["caixa"] / gest_cash["pl"] * 100).round(1)
         gest_disp = gest_cash.copy()
         gest_exp = gest_cash.copy()
-        gest_disp["Caixa"] = gest_disp["caixa"].apply(fmt)
+        gest_disp["Capac."] = gest_disp["caixa"].apply(fmt)
         gest_disp["PL"] = gest_disp["pl"].apply(fmt)
-        gest_disp["% Livre"] = gest_disp["pct"].apply(lambda x: f"{x:.1f}%")
+        gest_disp["% Capac."] = gest_disp["pct"].apply(lambda x: f"{x:.1f}%")
         gest_disp = gest_disp.rename(columns={"gestora": "Gestora", "fundos": "Fundos"})
-        st.dataframe(gest_disp[["Gestora", "Caixa", "PL", "% Livre", "Fundos"]], use_container_width=True, height=400)
-        excel_btn(gest_exp.rename(columns={"gestora": "Gestora", "caixa": "Caixa", "pl": "PL", "pct": "% Livre", "fundos": "Fundos"}),
+        st.dataframe(gest_disp[["Gestora", "Capac.", "PL", "% Capac.", "Fundos"]], use_container_width=True, height=400)
+        excel_btn(gest_exp.rename(columns={"gestora": "Gestora", "caixa": "Capacidade Est.", "pl": "PL", "pct": "% Capac.", "fundos": "Fundos"}),
                   "zyn_oportunidades.xlsx", key="exp_opp")
 
     # Pipeline overlay
@@ -2316,7 +2885,7 @@ elif page == "Oportunidades":
     if not pipe_df.empty:
         st.markdown("---")
         st.subheader("Pipeline vs. Caixa de Mercado")
-        st.markdown("*Seus deals ativos vs. caixa disponível no mercado para o mesmo tipo*")
+        st.markdown("*Seus deals ativos vs. capacidade estimada no mercado para o mesmo tipo*")
 
         tipo_map_rev = {"CRI": "CRI", "CRA": "CRA", "Agro": "CPR-F", "DCM": "NC", "CCB": "NC",
                         "Crédito Bancário": "NC", "FIDC": "DEBENTURE", "Equity": "NC", "Cota FIDC": "DEBENTURE"}
@@ -2380,7 +2949,6 @@ elif page == "Alertas":
     # --- Retornos próximos (7 dias) ---
     st.markdown("---")
     st.subheader("Retornos nos Próximos 7 Dias")
-    from datetime import timedelta
     prox_7 = datetime.now() + timedelta(days=7)
     prox_7_str = prox_7.strftime("%Y-%m-%d")
     proximos = retornos[(retornos["Cobrar Retorno"] >= today) & (retornos["Cobrar Retorno"] <= prox_7_str)]

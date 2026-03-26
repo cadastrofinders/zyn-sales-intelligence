@@ -357,6 +357,9 @@ def enrich_devedor(positions: pd.DataFrame, cda_frames: dict[str, pd.DataFrame])
         positions["ticker_devedor"] = None
 
     # Para BLC_6/BLC_8 com emissor: diferencia securitizadora vs devedor
+    if "emissor" not in positions.columns:
+        positions["emissor"] = None
+
     # NC e Debênture: emissor = devedor direto
     mask_devedor_direto = (
         positions["emissor"].notna()

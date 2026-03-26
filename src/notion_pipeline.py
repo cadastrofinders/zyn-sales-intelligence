@@ -62,7 +62,7 @@ def pipeline_to_df() -> pd.DataFrame:
     rows = []
     for d in deals:
         rows.append({
-            "Cliente": d.get("cliente", ""),
+            "Cliente": d.get("cliente", "").strip(),
             "Status": d.get("status", ""),
             "Fase": ", ".join(d.get("fase", [])),
             "Tipo": d.get("tipo_operacao", ""),
