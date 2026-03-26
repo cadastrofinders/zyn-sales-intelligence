@@ -553,6 +553,13 @@ with st.sidebar:
             Atualizado: <strong>{atualizado}</strong>
         </div>""", unsafe_allow_html=True)
     st.markdown("---")
+    st.markdown(
+        '🔗 <a href="https://zyn-credit-engine.streamlit.app/" target="_blank" '
+        'style="color:#2E7D4F;font-weight:600;text-decoration:none;font-size:0.9rem;">'
+        'Análise de Crédito</a>',
+        unsafe_allow_html=True,
+    )
+    st.markdown("---")
     st.markdown("*ZYN Capital © 2026*")
 
 
