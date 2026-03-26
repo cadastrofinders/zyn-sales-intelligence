@@ -169,7 +169,7 @@ def fetch_all_data():
         except:
             inc_err()
 
-    # ─── Cambio ───
+    # ─── Cambio (AwesomeAPI) ───
     def task_cambio():
         try:
             data = fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,BTC-USD,GBP-BRL")
@@ -185,6 +185,24 @@ def fetch_all_data():
                             'name': val.get('name', ''),
                         }
                 inc_ok('AwesomeAPI')
+        except:
+            inc_err()
+
+    # ─── Cambio fallback (Yahoo Finance) ───
+    def task_cambio_yahoo(name, ticker):
+        """Fallback para câmbio quando AwesomeAPI falha no Streamlit Cloud."""
+        try:
+            d = yahoo_quote(ticker)
+            if d:
+                with lock:
+                    # Só preenche se AwesomeAPI não preencheu
+                    if name not in result['cambio']:
+                        result['cambio'][name] = {
+                            'bid': d['price'], 'ask': d['price'],
+                            'high': d['price'], 'low': d['prev'],
+                            'pct': d['pct'], 'name': name,
+                        }
+                inc_ok('Yahoo Finance')
         except:
             inc_err()
 
@@ -276,6 +294,13 @@ def fetch_all_data():
 
         futures.append(pool.submit(task_igpm))
         futures.append(pool.submit(task_cambio))
+
+        # Câmbio fallback via Yahoo (caso AwesomeAPI falhe no Cloud)
+        for name, ticker in {
+            'USDBRL': 'USDBRL=X', 'EURBRL': 'EURBRL=X',
+            'GBPBRL': 'GBPBRL=X', 'BTCUSD': 'BTC-USD',
+        }.items():
+            futures.append(pool.submit(task_cambio_yahoo, name, ticker))
 
         # Focus
         for ind in ['IPCA', 'IGP-M', 'Selic', 'Câmbio', 'PIB Total']:

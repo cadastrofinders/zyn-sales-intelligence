@@ -3178,85 +3178,101 @@ elif page == "Alertas":
 
 
 # ══════════════════════════════════════════
-# COTAÇÕES (inline redirect to multipage)
+# COTAÇÕES — Minimalista & Dinâmico
 # ══════════════════════════════════════════
 elif page == "Cotações":
-    st.markdown("""<div class="main-header">
-        <h1>💹 Painel de Cotações</h1>
-        <p>Taxas, câmbio, commodities e referências internacionais — dados ao vivo</p>
-    </div>""", unsafe_allow_html=True)
-
-    # Import and run cotacoes inline
-    import importlib.util
-    _spec = importlib.util.spec_from_file_location("cotacoes", str(Path(__file__).parent / "pages" / "cotacoes.py"))
-    # Instead of importing (which would conflict with page_config), embed the logic directly
     from pages.cotacoes import fetch_all_data, fmt, delta_color
     import pandas as pd
 
     D = fetch_all_data()
-
-    st.markdown(f"""
-    <div style="background:#223040;color:white;padding:12px 24px;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;">
-        <div style="display:flex;align-items:center;">
-            <span style="font-size:20px;font-weight:700;letter-spacing:3px;">ZYN</span>
-            <span style="font-size:11px;color:#8B9197;letter-spacing:1px;margin-left:16px;">COTAÇÕES AO VIVO</span>
-        </div>
-        <div style="font-size:10px;color:#8B9197;text-align:right;">
-            <b style="color:#38a863;">● AO VIVO</b><br>
-            {D['timestamp']} — {D['ok']} APIs | {', '.join(D['sources'])}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if st.button("🔄 Atualizar Cotações"):
-        st.cache_data.clear()
-        st.rerun()
-
-    tab_c1, tab_c2, tab_c3, tab_c4 = st.tabs([
-        "VISÃO GERAL", "RENDA FIXA & CURVAS", "COMMODITIES", "SPREADS & REF. INT."
-    ])
-
     R = D['rates']
     C = D['cambio']
     idx = D['indices']
     COM = D['commodities']
     T = D['treasuries']
 
+    # Helper: só mostra delta se != 0
+    def _delta(pct):
+        if pct is None or pct == 0:
+            return None
+        return f"{pct:+.2f}%"
+
+    def _delta_pp(v):
+        if v is None or v == 0:
+            return None
+        return f"{v:+.2f} pp"
+
+    # Unidades curtas para commodities
+    _UNIT_SHORT = {
+        'USD cents/bushel': '¢/bu', 'USD cents/lb': '¢/lb',
+        'USD/bbl': '$/bbl', 'USD/MMBtu': '$/MMBtu',
+        'USD/oz troy': '$/oz', 'USD (proxy Vale)': '$',
+    }
+
+    # ─── Header compacto ───
+    hdr1, hdr2 = st.columns([7, 3])
+    with hdr1:
+        st.markdown(f"""<div style="display:flex;align-items:baseline;gap:12px;">
+            <span style="font-size:22px;font-weight:700;letter-spacing:3px;color:{NAVY};">COTAÇÕES</span>
+            <span style="font-size:10px;color:{GRAY};letter-spacing:1px;">{D['timestamp']} · {D['ok']} APIs · {', '.join(D['sources'])}</span>
+        </div>""", unsafe_allow_html=True)
+    with hdr2:
+        if st.button("Atualizar", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+
+    tab_c1, tab_c2, tab_c3, tab_c4 = st.tabs([
+        "VISÃO GERAL", "RENDA FIXA", "COMMODITIES", "SPREADS & REF."
+    ])
+
+    # ═══ TAB 1 — Visão Geral ═══
     with tab_c1:
-        # Taxas
-        st.markdown("**TAXAS BÁSICAS** — BCB ao vivo")
+        # Taxas — sem unidade no valor para não truncar
+        st.caption("TAXAS BÁSICAS · BCB")
         cols = st.columns(6)
-        for i, (label, key, unit) in enumerate([
-            ('Selic Meta', 'selic', '% a.a.'), ('CDI', 'cdi', '% a.a.'),
-            ('IPCA 12m', 'ipca_12m', '%'), ('IGP-M 12m', 'igpm_12m', '%'),
-            ('TR', 'tr', '%'), ('Poupança', 'poupanca', '% a.a.'),
+        for i, (label, key) in enumerate([
+            ('Selic', 'selic'), ('CDI', 'cdi'), ('IPCA 12m', 'ipca_12m'),
+            ('IGP-M 12m', 'igpm_12m'), ('TR', 'tr'), ('Poupança', 'poupanca'),
         ]):
             with cols[i]:
                 if key in R:
                     v = R[key]['valor']
                     prev = R[key].get('prev')
-                    delta = round(v - prev, 4) if prev else None
-                    st.metric(label, f"{fmt(v)} {unit}", f"{delta:+.2f} pp" if delta else None,
-                              delta_color=delta_color(delta) if delta else "off")
+                    d = round(v - prev, 4) if prev else None
+                    st.metric(label, f"{fmt(v)}%", _delta_pp(d),
+                              delta_color=delta_color(d) if d else "off")
 
-        # Câmbio
-        st.markdown("**CÂMBIO** — AwesomeAPI tempo real")
+        # Câmbio — fallback: se AwesomeAPI falhou, usa Yahoo para USD e EUR
+        st.caption("CÂMBIO · AwesomeAPI + BCB")
         cols = st.columns(5)
-        for i, (label, key) in enumerate([
-            ('Dólar', 'USDBRL'), ('Euro', 'EURBRL'), ('Libra', 'GBPBRL'), ('PTAX', None), ('Bitcoin', 'BTCUSD'),
-        ]):
+        cambio_display = [
+            ('Dólar', 'USDBRL', 'USDBRL=X', 4),
+            ('Euro', 'EURBRL', 'EURBRL=X', 4),
+            ('Libra', 'GBPBRL', 'GBPBRL=X', 4),
+            ('PTAX', None, None, 4),
+            ('Bitcoin', 'BTCUSD', 'BTC-USD', 0),
+        ]
+        for i, (label, awesome_key, yahoo_key, dec) in enumerate(cambio_display):
             with cols[i]:
-                if key and key in C:
-                    bid = C[key]['bid']
-                    pct = C[key]['pct']
-                    prefix = 'R$ ' if 'BRL' in key else '$ '
-                    dec = 0 if key == 'BTCUSD' else 4
-                    st.metric(label, f"{prefix}{fmt(bid, dec)}", f"{pct:+.2f}%", delta_color=delta_color(pct))
+                if awesome_key and awesome_key in C:
+                    bid = C[awesome_key]['bid']
+                    pct = C[awesome_key]['pct']
+                    prefix = '$ ' if awesome_key == 'BTCUSD' else 'R$ '
+                    st.metric(label, f"{prefix}{fmt(bid, dec)}", _delta(pct),
+                              delta_color=delta_color(pct) if pct else "off")
                 elif label == 'PTAX' and 'ptax' in R:
-                    st.metric(label, f"R$ {fmt(R['ptax']['valor'], 4)}", None)
+                    st.metric(label, f"R$ {fmt(R['ptax']['valor'], 4)}")
+                    st.caption(f"Ref.: {R['ptax']['data']}")
+                elif yahoo_key and yahoo_key.replace('=X', '').lower() in idx:
+                    # Yahoo fallback
+                    d = idx[yahoo_key.replace('=X', '').lower()]
+                    st.metric(label, f"R$ {fmt(d['price'], dec)}", _delta(d['pct']),
+                              delta_color=delta_color(d['pct']) if d['pct'] else "off")
+                else:
+                    st.metric(label, "—")
 
         # Índices
-        st.markdown("**ÍNDICES** — Yahoo Finance + BCB")
+        st.caption("ÍNDICES · Yahoo Finance + BCB")
         cols = st.columns(5)
         for i, (label, key, dec) in enumerate([
             ('Ibovespa', 'ibovespa', 0), ('S&P 500', 'sp500', 0),
@@ -3265,92 +3281,100 @@ elif page == "Cotações":
             with cols[i]:
                 if key == 'imab' and key in R:
                     v = R[key]['valor']
-                    st.metric(label, f"{fmt(v, dec)} pts")
+                    prev = R[key].get('prev')
+                    pct = round(((v / prev) - 1) * 100, 2) if prev else 0
+                    st.metric(label, f"{fmt(v, dec)}", _delta(pct),
+                              delta_color=delta_color(pct) if pct else "off")
                 elif key in idx:
                     d = idx[key]
-                    st.metric(label, f"{fmt(d['price'], dec)} pts", f"{d['pct']:+.2f}%", delta_color=delta_color(d['pct']))
+                    st.metric(label, f"{fmt(d['price'], dec)}", _delta(d['pct']),
+                              delta_color=delta_color(d['pct']) if d['pct'] else "off")
+                else:
+                    st.metric(label, "—")
 
+    # ═══ TAB 2 — Renda Fixa ═══
     with tab_c2:
-        st.markdown("**TESOURO DIRETO** — Dados de referência")
+        st.caption("TESOURO DIRETO · Referência")
         tesouro_rows = []
         for b in D['tesouro']:
             tc = f"Selic + {fmt(b['taxa_compra'], 4)}%" if b['tipo'] == 'Selic' else f"{fmt(b['taxa_compra'])}%"
             tv = f"Selic + {fmt(b['taxa_venda'], 4)}%" if b['tipo'] == 'Selic' else f"{fmt(b['taxa_venda'])}%"
-            tesouro_rows.append({'Título': b['nome'], 'Vencimento': b['vencimento'],
-                                 'Taxa Compra': tc, 'Taxa Venda': tv,
+            tesouro_rows.append({'Título': b['nome'], 'Venc.': b['vencimento'],
+                                 'Compra': tc, 'Venda': tv,
                                  'PU Compra': f"R$ {fmt(b['pu_compra'])}", 'PU Venda': f"R$ {fmt(b['pu_venda'])}"})
         st.dataframe(pd.DataFrame(tesouro_rows), use_container_width=True, hide_index=True)
 
-        # Focus
         focus = D['focus']
-        st.markdown("**EXPECTATIVAS FOCUS** — BCB ao vivo")
-        focus_rows = []
-        for ind, anos in focus.items():
-            row = {'Indicador': ind}
-            for yr in ['2025', '2026', '2027', '2028']:
-                v = anos.get(yr)
-                row[yr] = f"{fmt(v)}" if v is not None else "--"
-            focus_rows.append(row)
-        if focus_rows:
+        if any(bool(v) for v in focus.values()):
+            st.caption("EXPECTATIVAS FOCUS · BCB")
+            focus_rows = []
+            for ind, anos in focus.items():
+                row = {'Indicador': ind}
+                for yr in ['2025', '2026', '2027', '2028']:
+                    v = anos.get(yr)
+                    row[yr] = f"{fmt(v)}" if v is not None else "—"
+                focus_rows.append(row)
             st.dataframe(pd.DataFrame(focus_rows), use_container_width=True, hide_index=True)
 
+    # ═══ TAB 3 — Commodities ═══
     with tab_c3:
-        st.markdown("**AGRO & PECUÁRIA** — Yahoo Finance")
+        def _show_com(label, key, cols_ref, col_idx):
+            with cols_ref[col_idx]:
+                if key in COM:
+                    d = COM[key]
+                    u = _UNIT_SHORT.get(d['unit'], d['unit'])
+                    st.metric(label, f"{fmt(d['valor'])} {u}", _delta(d['pct']),
+                              delta_color=delta_color(d['pct']) if d['pct'] else "off")
+                else:
+                    st.metric(label, "—")
+
+        st.caption("AGRO · Yahoo Finance")
         cols = st.columns(4)
         for i, (lb, k) in enumerate([('Soja', 'soja'), ('Milho', 'milho'), ('Café', 'cafe'), ('Açúcar', 'acucar')]):
-            with cols[i]:
-                if k in COM:
-                    d = COM[k]
-                    st.metric(lb, f"{fmt(d['valor'])} {d['unit']}", f"{d['pct']:+.2f}%", delta_color=delta_color(d['pct']))
+            _show_com(lb, k, cols, i)
         cols = st.columns(4)
         for i, (lb, k) in enumerate([('Algodão', 'algodao'), ('Trigo', 'trigo'), ('Boi Gordo', 'boi_gordo')]):
-            with cols[i]:
-                if k in COM:
-                    d = COM[k]
-                    st.metric(lb, f"{fmt(d['valor'])} {d['unit']}", f"{d['pct']:+.2f}%", delta_color=delta_color(d['pct']))
+            _show_com(lb, k, cols, i)
 
-        st.markdown("**ENERGIA**")
+        st.caption("ENERGIA")
         cols = st.columns(3)
-        for i, (lb, k) in enumerate([('Petróleo Brent', 'petroleo_brent'), ('Petróleo WTI', 'petroleo_wti'), ('Gás Natural', 'gas_natural')]):
-            with cols[i]:
-                if k in COM:
-                    d = COM[k]
-                    st.metric(lb, f"{fmt(d['valor'])} {d['unit']}", f"{d['pct']:+.2f}%", delta_color=delta_color(d['pct']))
+        for i, (lb, k) in enumerate([('Brent', 'petroleo_brent'), ('WTI', 'petroleo_wti'), ('Gás Natural', 'gas_natural')]):
+            _show_com(lb, k, cols, i)
 
-        st.markdown("**METAIS**")
+        st.caption("METAIS")
         cols = st.columns(3)
-        for i, (lb, k) in enumerate([('Ouro', 'ouro'), ('Prata', 'prata'), ('Ferro (Vale)', 'ferro')]):
-            with cols[i]:
-                if k in COM:
-                    d = COM[k]
-                    st.metric(lb, f"{fmt(d['valor'])} {d['unit']}", f"{d['pct']:+.2f}%", delta_color=delta_color(d['pct']))
+        for i, (lb, k) in enumerate([('Ouro', 'ouro'), ('Prata', 'prata'), ('Ferro', 'ferro')]):
+            _show_com(lb, k, cols, i)
 
+    # ═══ TAB 4 — Spreads & Ref. Internacional ═══
     with tab_c4:
         selic = R.get('selic', {}).get('valor', 14.25)
-        st.markdown(f"**SPREADS — CRÉDITO ESTRUTURADO** — Sobre Selic {fmt(selic)}%")
+        st.caption(f"SPREADS CRÉDITO ESTRUTURADO · Selic {fmt(selic)}%")
         spreads_data = [
-            ['CRA Senior (Agro)', 'AAA', '3-5a', 'CDI + 1,50% a 2,50%', f'{fmt(selic+1.5)}% a {fmt(selic+2.5)}%'],
-            ['CRA Mezanino', 'AA/A', '3-5a', 'CDI + 3,00% a 5,00%', f'{fmt(selic+3)}% a {fmt(selic+5)}%'],
-            ['CRI Senior', 'AAA', '5-8a', 'IPCA + 7,00% a 8,50%', 'IPCA + 7,00% a 8,50%'],
-            ['Debênture Infra', 'AAA', '7-10a', 'IPCA + 6,50% a 8,00%', 'IPCA + 6,50% a 8,00%'],
-            ['FIDC Senior', 'AAA', '2-3a', 'CDI + 1,80% a 3,00%', f'{fmt(selic+1.8)}% a {fmt(selic+3)}%'],
-            ['FIDC Mezanino', 'A/BBB', '2-3a', 'CDI + 4,00% a 7,00%', f'{fmt(selic+4)}% a {fmt(selic+7)}%'],
-            ['FIDC Sub', 'NR', '2-3a', 'CDI + 8,00% a 15,00%', f'{fmt(selic+8)}% a {fmt(selic+15)}%'],
-            ['S&LB Rural', 'N/A', '3-7a', 'CDI + 3,00% a 5,50%', f'{fmt(selic+3)}% a {fmt(selic+5.5)}%'],
-            ['NCom', 'Varia', '1-3a', 'CDI + 2,00% a 6,00%', f'{fmt(selic+2)}% a {fmt(selic+6)}%'],
+            ['CRA Senior', 'AAA', '3-5a', 'CDI+1,5~2,5%', f'{fmt(selic+1.5)}~{fmt(selic+2.5)}%'],
+            ['CRA Mezanino', 'AA/A', '3-5a', 'CDI+3,0~5,0%', f'{fmt(selic+3)}~{fmt(selic+5)}%'],
+            ['CRI Senior', 'AAA', '5-8a', 'IPCA+7,0~8,5%', 'IPCA+7,0~8,5%'],
+            ['Deb. Infra', 'AAA', '7-10a', 'IPCA+6,5~8,0%', 'IPCA+6,5~8,0%'],
+            ['FIDC Senior', 'AAA', '2-3a', 'CDI+1,8~3,0%', f'{fmt(selic+1.8)}~{fmt(selic+3)}%'],
+            ['FIDC Mezanino', 'A/BBB', '2-3a', 'CDI+4,0~7,0%', f'{fmt(selic+4)}~{fmt(selic+7)}%'],
+            ['FIDC Sub', 'NR', '2-3a', 'CDI+8,0~15,0%', f'{fmt(selic+8)}~{fmt(selic+15)}%'],
+            ['S&LB Rural', 'N/A', '3-7a', 'CDI+3,0~5,5%', f'{fmt(selic+3)}~{fmt(selic+5.5)}%'],
+            ['NCom/CCB', 'Varia', '1-3a', 'CDI+2,0~6,0%', f'{fmt(selic+2)}~{fmt(selic+6)}%'],
         ]
         st.dataframe(pd.DataFrame(spreads_data, columns=['Instrumento', 'Rating', 'Prazo', 'Spread', 'All-In']),
                       use_container_width=True, hide_index=True)
 
-        st.markdown("**REFERÊNCIA INTERNACIONAL** — Yahoo Finance + BCB")
+        st.caption("REFERÊNCIA INTERNACIONAL · Yahoo Finance + BCB")
         cols = st.columns(5)
         for i, (label, key) in enumerate([
-            ('UST 2Y', 'ust_2y'), ('UST 5Y', 'ust_5y'), ('UST 10Y', 'ust_10y'), ('UST 30Y', 'ust_30y'), ('CDS BR 5Y', 'cds_br'),
+            ('UST 2Y', 'ust_2y'), ('UST 5Y', 'ust_5y'), ('UST 10Y', 'ust_10y'),
+            ('UST 30Y', 'ust_30y'), ('CDS BR', 'cds_br'),
         ]):
             with cols[i]:
                 if key in T:
                     d = T[key]
-                    unit = 'bps' if key == 'cds_br' else '% a.a.'
-                    val = fmt(d['rate'], 0) if key == 'cds_br' else fmt(d['rate'], 3)
+                    val = fmt(d['rate'], 0) if key == 'cds_br' else f"{fmt(d['rate'], 3)}%"
+                    lbl_unit = ' bps' if key == 'cds_br' else ''
                     pct = d.get('pct', 0)
-                    st.metric(label, f"{val} {unit}", f"{pct:+.2f}%" if d.get('source') == 'live' else "REF.")
+                    st.metric(label, f"{val}{lbl_unit}", _delta(pct) if d.get('source') == 'live' else None,
+                              delta_color=delta_color(pct) if pct else "off")
