@@ -556,6 +556,59 @@ if page == "Painel Executivo":
     _pipe = pipeline_to_df()
     _ativos = _pipe[_pipe["Status"] != "Declinado"] if not _pipe.empty else pd.DataFrame()
 
+    # ── Compartilhar via WhatsApp ──
+    def _build_whatsapp_msg() -> str:
+        hoje = datetime.now().strftime("%d/%m/%Y")
+        _quentes = len(_ativos[_ativos["Status"] == "Quente"]) if not _ativos.empty and "Status" in _ativos.columns else 0
+        _mornos = len(_ativos[_ativos["Status"] == "Morno"]) if not _ativos.empty and "Status" in _ativos.columns else 0
+        _frios = len(_ativos[_ativos["Status"] == "Frio"]) if not _ativos.empty and "Status" in _ativos.columns else 0
+        _conv = f"{_kpis['leads_convertidos']}/{_kpis['leads_total']}" if _kpis.get("leads_total") else "—"
+
+        lines = [
+            f"*ZYN Capital — Painel Executivo*",
+            f"_{hoje}_",
+            "",
+            f"*Pipeline:* {fmt_br(_kpis['pipe_total'])} ({_kpis['pipe_count']} deals)",
+            f"  Quentes: {_quentes} | Mornos: {_mornos} | Frios: {_frios}",
+            "",
+            f"*Receita Recebida:* {fmt_br(_kpis['rec_recebida'])}",
+            f"*Receita Confirmada:* {fmt_br(_kpis['rec_confirmada'])}",
+            f"*Receita Prevista:* {fmt_br(_kpis['rec_prevista'])}",
+            "",
+            f"*Despesas:* {fmt_br(_kpis['desp_paga'])}",
+            f"*Burn Rate:* {fmt_br(_kpis['burn_rate'])}/mês",
+            f"*Saldo C6:* {fmt_br(_kpis['saldo_atual'])}",
+            f"*Runway:* {_kpis['runway_meses']:.1f} meses",
+            "",
+            f"*Leads:* {_kpis['leads_ativos']} ativos | Conversão: {_conv}",
+        ]
+
+        # Add deal list if small enough
+        if not _ativos.empty and len(_ativos) <= 15:
+            lines.append("")
+            lines.append("*Deals ativos:*")
+            for _, d in _ativos.iterrows():
+                nome = str(d.get("Cliente", "")).strip()[:25]
+                status = str(d.get("Status", ""))
+                valor = fmt_br(d["Valor"]) if pd.notna(d.get("Valor")) else "—"
+                emoji = {"Quente": "🔴", "Morno": "🟡", "Frio": "🔵"}.get(status, "⚪")
+                lines.append(f"  {emoji} {nome} — {valor}")
+
+        lines.append("")
+        lines.append("_Enviado via ZYN Sales Intelligence_")
+        return "\n".join(lines)
+
+    import urllib.parse as _urlparse
+    _wa_msg = _build_whatsapp_msg()
+    _wa_url = f"https://wa.me/?text={_urlparse.quote(_wa_msg)}"
+    st.markdown(
+        f'<a href="{_wa_url}" target="_blank" style="display:inline-block;background:#25D366;color:white;'
+        f'padding:8px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">'
+        f'📤 Compartilhar no WhatsApp</a>',
+        unsafe_allow_html=True,
+    )
+    st.markdown("<br>", unsafe_allow_html=True)
+
     # ── TABS ──
     tab_resumo, tab_pipe, tab_rec, tab_desp, tab_fluxo, tab_leads, tab_indic = st.tabs([
         "Resumo", "Pipeline", "Receitas", "Despesas", "Fluxo de Caixa", "Leads", "Indicadores",
