@@ -6,3 +6,6 @@ __pycache__/
 *.log
 output/
 .claude/
+# WhatsApp Bot auth data
+whatsapp-bot/.wwebjs_auth/
+whatsapp-bot/node_modules/
