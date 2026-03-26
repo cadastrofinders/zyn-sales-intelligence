@@ -1068,6 +1068,96 @@ elif page == "Visão Geral":
         st.error("Nenhum dado. Vá em Atualizar.")
         st.stop()
 
+    # --- Busca Universal ---
+    busca_global = st.text_input(
+        "Buscar por nome, CPF, CNPJ, fundo, gestora, devedor, emissor, ticker...",
+        "", key="vg_busca", placeholder="Ex: MRV, 60.701.190, Raízen, FIDC, CDI...",
+    )
+
+    if busca_global:
+        q = busca_global.strip()
+        # Busca em todas as colunas de texto relevantes
+        search_cols = ["gestora", "nome_fundo", "devedor", "emissor", "cnpj_fundo",
+                       "cnpj_emissor", "cnpj_gestora", "ticker_devedor", "tipo_ativo",
+                       "classe_anbima", "administrador", "indexador", "descricao_ativo"]
+        mask = pd.Series(False, index=positions.index)
+        for col in search_cols:
+            if col in positions.columns:
+                mask = mask | positions[col].astype(str).str.contains(q, case=False, na=False)
+        hits = positions[mask]
+
+        st.success(f"**{len(hits):,}** posições encontradas para \"{q}\" — {hits['cnpj_fundo'].nunique()} fundos, {hits['gestora'].nunique() if 'gestora' in hits.columns else 0} gestoras")
+
+        if not hits.empty:
+            # KPIs do resultado
+            k1, k2, k3, k4, k5 = st.columns(5)
+            k1.metric("Volume", fmt(hits["vl_posicao"].sum()))
+            k2.metric("Posições", f"{len(hits):,}")
+            k3.metric("Fundos", hits["cnpj_fundo"].nunique())
+            k4.metric("Gestoras", hits["gestora"].nunique() if "gestora" in hits.columns else 0)
+            k5.metric("Devedores", hits["devedor"].nunique() if "devedor" in hits.columns else 0)
+
+            # Tabs com resultados
+            tab_pos, tab_gest, tab_dev, tab_fundos = st.tabs(["Posições", "Gestoras", "Devedores", "Fundos"])
+
+            with tab_pos:
+                show_cols = ["gestora", "nome_fundo", "tipo_ativo", "devedor", "emissor",
+                             "vl_posicao", "indexador", "spread", "dt_vencimento"]
+                avail = [c for c in show_cols if c in hits.columns]
+                tbl = hits[avail].head(500).copy()
+                if "vl_posicao" in tbl.columns:
+                    tbl["vl_posicao"] = tbl["vl_posicao"].apply(fmt)
+                if "spread" in tbl.columns:
+                    tbl["spread"] = tbl["spread"].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x != 0 else "—")
+                tbl = tbl.rename(columns={
+                    "gestora": "Gestora", "nome_fundo": "Fundo", "tipo_ativo": "Tipo",
+                    "devedor": "Devedor", "emissor": "Emissor", "vl_posicao": "Valor",
+                    "indexador": "Indexador", "spread": "Spread", "dt_vencimento": "Vencimento",
+                })
+                st.dataframe(tbl, use_container_width=True, height=400)
+                excel_btn(tbl, f"zyn_busca_{q[:20]}.xlsx", key="exp_busca")
+
+            with tab_gest:
+                if "gestora" in hits.columns:
+                    g_agg = hits.groupby("gestora").agg(
+                        volume=("vl_posicao", "sum"), n_fundos=("cnpj_fundo", "nunique"),
+                        n_posicoes=("vl_posicao", "count"),
+                        tipos=("tipo_ativo", lambda x: ", ".join(sorted(x.unique()))),
+                    ).reset_index().sort_values("volume", ascending=False)
+                    g_agg["Vol."] = g_agg["volume"].apply(fmt)
+                    st.dataframe(
+                        g_agg.rename(columns={"gestora": "Gestora", "n_fundos": "Fundos", "n_posicoes": "Posições", "tipos": "Tipos"})[["Gestora", "Vol.", "Fundos", "Posições", "Tipos"]],
+                        use_container_width=True, height=350,
+                    )
+
+            with tab_dev:
+                if "devedor" in hits.columns:
+                    d_agg = hits[hits["devedor"].notna() & ~hits["devedor"].str.contains("Cedente", na=False)].groupby("devedor").agg(
+                        volume=("vl_posicao", "sum"), n_gestoras=("gestora", "nunique"),
+                        n_fundos=("cnpj_fundo", "nunique"),
+                        tipos=("tipo_ativo", lambda x: ", ".join(sorted(x.unique()))),
+                    ).reset_index().sort_values("volume", ascending=False)
+                    d_agg["Vol."] = d_agg["volume"].apply(fmt)
+                    st.dataframe(
+                        d_agg.rename(columns={"devedor": "Devedor", "n_gestoras": "Gestoras", "n_fundos": "Fundos", "tipos": "Tipos"})[["Devedor", "Vol.", "Gestoras", "Fundos", "Tipos"]],
+                        use_container_width=True, height=350,
+                    )
+
+            with tab_fundos:
+                f_agg = hits.groupby(["cnpj_fundo", "nome_fundo"]).agg(
+                    gestora=("gestora", "first"),
+                    volume=("vl_posicao", "sum"), n_posicoes=("vl_posicao", "count"),
+                    tipos=("tipo_ativo", lambda x: ", ".join(sorted(x.unique()))),
+                ).reset_index().sort_values("volume", ascending=False)
+                f_agg["Vol."] = f_agg["volume"].apply(fmt)
+                st.dataframe(
+                    f_agg.rename(columns={"cnpj_fundo": "CNPJ", "nome_fundo": "Fundo", "gestora": "Gestora", "n_posicoes": "Posições", "tipos": "Tipos"})[["CNPJ", "Fundo", "Gestora", "Vol.", "Posições", "Tipos"]],
+                    use_container_width=True, height=350,
+                )
+
+        st.markdown("---")
+
+    # --- Visão Geral (KPIs + Charts) ---
     c1, c2, c3, c4 = st.columns(4)
     for col, val, label in [
         (c1, fmt(positions["vl_posicao"].sum()), "Volume Total"),
