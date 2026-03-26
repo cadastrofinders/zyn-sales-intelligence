@@ -1986,6 +1986,48 @@ elif page == "Atualizar":
         else:
             st.markdown(f"- **{desc}**: *não encontrado*")
 
+    # === SYNC PIPELINE NOTION ===
+    st.markdown("---")
+    st.subheader("Sincronizar Pipeline (Notion)")
+    sync_date = pipeline_sync_date()
+    st.info(f"Último sync do Pipeline: **{sync_date}**")
+    st.markdown("""
+    O Pipeline é sincronizado com o Notion semanalmente via Claude Code.
+    Use o botão abaixo para forçar uma atualização manual — o processo lê
+    cada deal do Notion e atualiza `pipeline.json`.
+    """)
+
+    pipe_sync_col1, pipe_sync_col2 = st.columns([1, 2])
+    with pipe_sync_col1:
+        if st.button("🔄 Sync Pipeline Notion", type="primary", key="btn_sync_pipeline"):
+            with st.spinner("Conectando ao Notion e lendo deals..."):
+                try:
+                    sync_result = subprocess.run(
+                        [sys.executable, "sync_notion_auto.py"],
+                        capture_output=True, text=True,
+                        cwd=str(Path(__file__).resolve().parent),
+                        timeout=300,
+                    )
+                    if sync_result.returncode == 0:
+                        st.success("✅ Pipeline sincronizado!")
+                        st.cache_data.clear()
+                        with st.expander("Log"):
+                            st.code(sync_result.stdout)
+                    else:
+                        st.error("Erro no sync:")
+                        st.code(sync_result.stderr or sync_result.stdout)
+                except FileNotFoundError:
+                    st.warning("Script `sync_notion_auto.py` não encontrado. Use o sync via Claude Code (`/sales sync`).")
+                except subprocess.TimeoutExpired:
+                    st.error("Timeout — sync demorou mais de 5 min.")
+    with pipe_sync_col2:
+        st.markdown(f"""
+        <div style="font-size:0.8rem;color:{GRAY};padding-top:0.5rem;">
+            <strong>Fontes:</strong> Notion Pipeline DB → pipeline.json<br>
+            <strong>Frequência:</strong> Semanal automático + manual sob demanda<br>
+            <strong>Campos:</strong> Cliente, Status, Analisando, Valor, Sócio, Fase, Tipo
+        </div>""", unsafe_allow_html=True)
+
 
 # ══════════════════════════════════════════
 # PIPELINE (Notion)

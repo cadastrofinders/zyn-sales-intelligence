@@ -1,5 +1,5 @@
 {
-  "sync_date": "2026-03-25",
+  "sync_date": "2026-03-25T19:00:00",
   "source": "Notion Pipeline em Andamento",
   "deals": [
     {
@@ -28,7 +28,7 @@
       "valor": 200000000,
       "socio": "Danilo",
       "originador": "BM9",
-      "analisando": ["GCB", "Vinci", "exes", "Jive"],
+      "analisando": ["GCB", "Vinci", "exes", "Jive", "Kinea"],
       "exclusividade": ["Não"],
       "envio_investidores": "2026-02-26",
       "cobrar_retorno": "2026-03-26",
@@ -53,7 +53,7 @@
     {
       "id": "30a8e4de-57c8-8011-92e5-f4dd1b9c83a9",
       "cliente": "RCS Tecnologia",
-      "status": "TS Assinado - enviado Operações",
+      "status": "Declinado",
       "fase": ["Em Analise"],
       "tipo_operacao": "Crédito Bancário",
       "instrumento": "Nota comercial",
