@@ -1,287 +1,75 @@
 {
-  "sync_date": "2026-03-25T19:00:00",
+  "sync_date": "2026-03-25",
   "source": "Notion Pipeline em Andamento",
   "deals": [
-    {
-      "id": "3048e4de-57c8-805a-84ee-e0bcbadc9c76",
-      "cliente": "Roça Agropecuaria",
-      "status": "Quente",
-      "fase": ["Em Analise"],
-      "tipo_operacao": "Agro",
-      "instrumento": "CPR - F",
-      "valor": 20000000,
-      "socio": "Danilo",
-      "originador": "ZYN - Danilo",
-      "analisando": ["Vinci", "Pine", "Fibra", "Jive"],
-      "exclusividade": ["Sim"],
-      "envio_investidores": "2026-02-11",
-      "cobrar_retorno": "2026-03-30",
-      "notion_url": "https://www.notion.so/3048e4de57c8805a84eee0bcbadc9c76"
-    },
-    {
-      "id": "3138e4de-57c8-8083-a34c-c023c9471017",
-      "cliente": "Grupo Giongo",
-      "status": "Quente",
-      "fase": ["Em Analise"],
-      "tipo_operacao": "Agro",
-      "instrumento": "CPR - F",
-      "valor": 200000000,
-      "socio": "Danilo",
-      "originador": "BM9",
-      "analisando": ["GCB", "Vinci", "exes", "Jive", "Kinea"],
-      "exclusividade": ["Não"],
-      "envio_investidores": "2026-02-26",
-      "cobrar_retorno": "2026-03-26",
-      "notion_url": "https://www.notion.so/3138e4de57c88083a34cc023c9471017"
-    },
-    {
-      "id": "3128e4de-57c8-8092-b8bc-d0c5212b2419",
-      "cliente": "Grupo Rodrigues",
-      "status": "Quente",
-      "fase": ["Em Analise"],
-      "tipo_operacao": "Agro",
-      "instrumento": "CPR - F / CRA",
-      "valor": 25000000,
-      "socio": "Danilo",
-      "originador": "Da Porteira",
-      "analisando": ["Pine", "Kijani", "GCB"],
-      "exclusividade": [],
-      "envio_investidores": "2026-02-25",
-      "cobrar_retorno": "2026-03-24",
-      "notion_url": "https://www.notion.so/3128e4de57c88092b8bcd0c5212b2419"
-    },
-    {
-      "id": "30a8e4de-57c8-8011-92e5-f4dd1b9c83a9",
-      "cliente": "RCS Tecnologia",
-      "status": "Declinado",
-      "fase": ["Em Analise"],
-      "tipo_operacao": "Crédito Bancário",
-      "instrumento": "Nota comercial",
-      "valor": null,
-      "socio": "Luiz",
-      "originador": "ZYN - Luiz",
-      "analisando": ["GCB", "Chimera", "Galapagos", "BTG", "Luso"],
-      "exclusividade": [],
-      "envio_investidores": "2026-02-13",
-      "cobrar_retorno": "2026-02-23",
-      "observacoes": "BTG - Possib. de M&A",
-      "notion_url": "https://www.notion.so/30a8e4de57c8801192e5f4dd1b9c83a9"
-    },
-    {
-      "id": "3258e4de-57c8-80bd-a355-ca3ba5090e67",
-      "cliente": "New Inc.",
-      "status": "Quente",
-      "fase": ["Em Analise"],
-      "tipo_operacao": "CCB",
-      "instrumento": "CCB/CRI",
-      "valor": 66000000,
-      "socio": "Renato",
-      "originador": "Zyn - Renato",
-      "analisando": ["GCB", "BS2", "Fegik"],
-      "exclusividade": ["Não"],
-      "envio_investidores": "2026-03-16",
-      "cobrar_retorno": null,
-      "notion_url": "https://www.notion.so/3258e4de57c880bda355ca3ba5090e67"
-    },
-    {
-      "id": "3038e4de-57c8-80ff-bb69-ed44a9a8733f",
-      "cliente": "Gran Art",
-      "status": "Morno",
-      "fase": ["Em Analise"],
-      "tipo_operacao": "CRI",
-      "instrumento": "CRI",
-      "valor": 29500000,
-      "socio": "Danilo",
-      "originador": "BM9",
-      "analisando": ["Inco"],
-      "exclusividade": ["Sim"],
-      "envio_investidores": "2026-01-12",
-      "cobrar_retorno": null,
-      "notion_url": "https://www.notion.so/3038e4de57c880ffbb69ed44a9a8733f"
-    },
-    {
-      "id": "30c8e4de-57c8-80aa-88d8-de153fb48ad8",
-      "cliente": "Claudio Peças",
-      "status": "Quente",
-      "fase": ["TS enviado ao cliente"],
-      "tipo_operacao": "DCM",
-      "instrumento": "NC",
-      "valor": 22000000,
-      "socio": "Danilo",
-      "originador": "Viapag",
-      "analisando": ["GCB"],
-      "exclusividade": ["Não"],
-      "envio_investidores": "2026-02-25",
-      "cobrar_retorno": "2026-03-24",
-      "notion_url": "https://www.notion.so/30c8e4de57c880aa88d8de153fb48ad8"
-    },
-    {
-      "id": "3208e4de-57c8-808f-883e-d37edc1521ab",
-      "cliente": "Grupo Saul Francisco",
-      "status": "Quente",
-      "fase": ["Em Analise"],
-      "tipo_operacao": "Agro",
-      "instrumento": "SLB",
-      "valor": 50000000,
-      "socio": "Danilo",
-      "originador": "Safra Agrofinance",
-      "analisando": ["Exa", "Galapagos", "Vinci", "Jive"],
-      "exclusividade": [],
-      "envio_investidores": "2026-03-11",
-      "cobrar_retorno": "2026-03-31",
-      "notion_url": "https://www.notion.so/3208e4de57c8808f883ed37edc1521ab"
-    },
-    {
-      "id": "3148e4de-57c8-80bf-8449-dc37129ea1c8",
-      "cliente": "Toledo Ferrari",
-      "status": "Quente",
-      "fase": ["Em Analise"],
-      "tipo_operacao": "Equity",
-      "instrumento": "SCP",
-      "valor": 24000000,
-      "socio": "Renato",
-      "originador": "ZYN - Renato",
-      "analisando": ["Inco"],
-      "exclusividade": [],
-      "envio_investidores": "2026-02-27",
-      "cobrar_retorno": "2026-03-25",
-      "notion_url": "https://www.notion.so/3148e4de57c880bf8449dc37129ea1c8"
-    },
-    {
-      "id": "3068e4de-57c8-800b-86ce-edf0795b9052",
-      "cliente": "Umã Inc.",
-      "status": "Quente",
-      "fase": ["Em Analise", "TS enviado ao cliente"],
-      "tipo_operacao": "CRI",
-      "instrumento": "CRI",
-      "valor": 35000000,
-      "socio": "Danilo",
-      "originador": "Zyn - Danilo",
-      "analisando": ["BS2", "Bside", "Fegik", "Galapagos", "GCB"],
-      "exclusividade": ["Não"],
-      "envio_investidores": "2026-02-13",
-      "cobrar_retorno": "2026-03-30",
-      "notion_url": "https://www.notion.so/3068e4de57c8800b86ceedf0795b9052"
-    },
-    {
-      "id": "32c8e4de-57c8-80a3-b316-e433d0bc93fd",
-      "cliente": "Grupo Barco - Cota FIDC",
-      "status": "Quente",
-      "fase": ["Em Analise"],
-      "tipo_operacao": "Cota FIDC",
-      "instrumento": "FIDC",
-      "valor": 35000000,
-      "socio": "Danilo",
-      "originador": "Vipag",
-      "analisando": ["EXT Capital", "Fibra Asset"],
-      "exclusividade": ["Não"],
-      "envio_investidores": "2026-03-23",
-      "cobrar_retorno": "2026-03-30",
-      "notion_url": "https://www.notion.so/32c8e4de57c880a3b316e433d0bc93fd"
-    },
-    {
-      "id": "3298e4de-57c8-802d-9613-ce3022ce6ceb",
-      "cliente": "Grupo União - Baron 55",
-      "status": "Quente",
-      "fase": ["Em Analise"],
-      "tipo_operacao": "CRI",
-      "instrumento": "CRI",
-      "valor": 40000000,
-      "socio": "Danilo",
-      "originador": "BM9",
-      "analisando": ["Fegik", "GCB", "Inco", "Bside", "BS2", "Jive", "Galapagos", "exes"],
-      "exclusividade": [],
-      "envio_investidores": "2026-03-20",
-      "cobrar_retorno": "2026-03-30",
-      "notion_url": "https://www.notion.so/3298e4de57c8802d9613ce3022ce6ceb"
-    },
     {
       "id": "2f68e4de-57c8-80a4-bbd3-cbae26c31dee",
       "cliente": "Grupo Salas",
       "status": "Quente",
-      "fase": ["Em Analise"],
+      "fase": [],
       "tipo_operacao": "CRI",
-      "instrumento": "CRI",
+      "instrumento": "",
       "valor": 61200000,
       "socio": "Danilo",
       "originador": "BM9",
-      "analisando": ["GCB", "Fegik", "Bside", "exes"],
-      "exclusividade": ["Sim"],
+      "analisando": [
+        "GCB",
+        "Fegik",
+        "Bside",
+        "exes"
+      ],
+      "exclusividade": [
+        "Sim"
+      ],
       "envio_investidores": "2026-01-27",
       "cobrar_retorno": null,
       "notion_url": "https://www.notion.so/2f68e4de57c880a4bbd3cbae26c31dee"
     },
     {
-      "id": "3038e4de-57c8-80b8-92ca-c864d60c6694",
-      "cliente": "Grupo Salas (Compra Estoque)",
-      "status": "Quente",
-      "fase": ["TS enviado ao cliente"],
-      "tipo_operacao": "Compra Estoque",
-      "instrumento": "Compra Estoque",
-      "valor": 14000000,
+      "id": "3038e4de-57c8-8002-86b7-c4695dcf7236",
+      "cliente": "Jozair - Pró Soluto",
+      "status": "TS Assinado - enviado Operações",
+      "fase": [],
+      "tipo_operacao": "CRI",
+      "instrumento": "",
+      "valor": null,
       "socio": "Danilo",
       "originador": "BM9",
-      "analisando": ["Inco"],
-      "exclusividade": ["Sim"],
-      "envio_investidores": "2026-01-27",
+      "analisando": [
+        "Inco"
+      ],
+      "exclusividade": [
+        "Sim"
+      ],
+      "envio_investidores": "2026-01-26",
       "cobrar_retorno": null,
-      "notion_url": "https://www.notion.so/3038e4de57c880b892cac864d60c6694"
+      "notion_url": "https://www.notion.so/3038e4de57c8800286b7c4695dcf7236"
     },
     {
-      "id": "3118e4de-57c8-8086-ad4a-f02e599a88ea",
-      "cliente": "Verderio",
+      "id": "3038e4de-57c8-8002-b94f-c56a3e5cb16a",
+      "cliente": "Fibra Cotton",
       "status": "Declinado",
-      "fase": ["Declinado"],
-      "tipo_operacao": "Crédito Bancário",
-      "instrumento": "Nota comercial",
-      "valor": null,
-      "socio": "Luiz",
-      "originador": "Zyn - Luiz",
-      "analisando": [],
-      "exclusividade": ["Não"],
-      "envio_investidores": "2026-02-26",
-      "cobrar_retorno": null,
-      "notion_url": "https://www.notion.so/3118e4de57c88086ad4af02e599a88ea"
-    },
-    {
-      "id": "3038e4de-57c8-80a8-a4e0-fec093010da1",
-      "cliente": "Grupo Goulart",
-      "status": "Declinado",
-      "fase": ["Declinado"],
-      "tipo_operacao": "Agro",
-      "instrumento": "CPR- F",
+      "fase": [],
+      "tipo_operacao": "FIDC",
+      "instrumento": "",
       "valor": null,
       "socio": "Danilo",
-      "originador": "Da Porteira",
+      "originador": "Zeal / Brid",
       "analisando": [],
-      "exclusividade": ["Sim"],
-      "envio_investidores": "2026-02-09",
-      "cobrar_retorno": "2026-03-02",
-      "notion_url": "https://www.notion.so/3038e4de57c880a8a4e0fec093010da1"
-    },
-    {
-      "id": "3038e4de-57c8-80f9-948a-f2398c8b06aa",
-      "cliente": "Grupo Zanoni",
-      "status": "Declinado",
-      "fase": ["Declinado"],
-      "tipo_operacao": "Agro",
-      "instrumento": "CPR - F",
-      "valor": null,
-      "socio": "Danilo",
-      "originador": "Zyn - Danilo",
-      "analisando": [],
-      "exclusividade": [],
-      "envio_investidores": "2026-02-09",
-      "cobrar_retorno": null,
-      "notion_url": "https://www.notion.so/3038e4de57c880f9948af2398c8b06aa"
+      "exclusividade": [
+        "Não"
+      ],
+      "envio_investidores": "2026-01-20",
+      "cobrar_retorno": "2026-02-24",
+      "notion_url": "https://www.notion.so/3038e4de57c88002b94fc56a3e5cb16a"
     },
     {
       "id": "3038e4de-57c8-8057-a86f-daa022d989fb",
       "cliente": "Grupo Melozzi",
       "status": "Declinado",
-      "fase": ["Declinado"],
+      "fase": [],
       "tipo_operacao": "Agro",
-      "instrumento": "CPR- F / SLB",
+      "instrumento": "",
       "valor": null,
       "socio": "Danilo",
       "originador": "Zyn - Danilo",
@@ -292,12 +80,32 @@
       "notion_url": "https://www.notion.so/3038e4de57c88057a86fdaa022d989fb"
     },
     {
+      "id": "3038e4de-57c8-806e-a5c3-e8ddf3c84dc0",
+      "cliente": "Agroplanta",
+      "status": "Morno",
+      "fase": [],
+      "tipo_operacao": "Special Sits",
+      "instrumento": "",
+      "valor": 50000000,
+      "socio": "Danilo",
+      "originador": "Zyn - Danilo",
+      "analisando": [
+        "SSG"
+      ],
+      "exclusividade": [
+        "Não"
+      ],
+      "envio_investidores": "2026-02-05",
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/3038e4de57c8806ea5c3e8ddf3c84dc0"
+    },
+    {
       "id": "3038e4de-57c8-807d-bd27-fe02c9894257",
       "cliente": "DC Grupo Simões",
       "status": "Declinado",
-      "fase": ["Em Analise"],
+      "fase": [],
       "tipo_operacao": "Legal Claim",
-      "instrumento": "Direito Creditorio",
+      "instrumento": "",
       "valor": null,
       "socio": "Danilo",
       "originador": "NW",
@@ -308,12 +116,89 @@
       "notion_url": "https://www.notion.so/3038e4de57c8807dbd27fe02c9894257"
     },
     {
+      "id": "3038e4de-57c8-808b-a09d-e4cb8a5efbed",
+      "cliente": "Flor do Cerrado",
+      "status": "Morno",
+      "fase": [],
+      "tipo_operacao": "CRI",
+      "instrumento": "",
+      "valor": 10000000,
+      "socio": "Danilo",
+      "originador": "BM9",
+      "analisando": [
+        "Inco",
+        "Fegik"
+      ],
+      "exclusividade": [
+        "Sim"
+      ],
+      "envio_investidores": "2026-01-21",
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/3038e4de57c8808ba09de4cb8a5efbed"
+    },
+    {
+      "id": "3038e4de-57c8-80a8-a4e0-fec093010da1",
+      "cliente": "Grupo Goulart",
+      "status": "Declinado",
+      "fase": [],
+      "tipo_operacao": "Agro",
+      "instrumento": "",
+      "valor": null,
+      "socio": "Danilo",
+      "originador": "Da Porteira",
+      "analisando": [],
+      "exclusividade": [
+        "Sim"
+      ],
+      "envio_investidores": "2026-02-09",
+      "cobrar_retorno": "2026-03-02",
+      "notion_url": "https://www.notion.so/3038e4de57c880a8a4e0fec093010da1"
+    },
+    {
+      "id": "3038e4de-57c8-80b8-92ca-c864d60c6694",
+      "cliente": "Grupo Salas",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "",
+      "instrumento": "",
+      "valor": 14000000,
+      "socio": "Danilo",
+      "originador": "BM9",
+      "analisando": [
+        "Inco"
+      ],
+      "exclusividade": [
+        "Sim"
+      ],
+      "envio_investidores": "2026-01-27",
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/3038e4de57c880b892cac864d60c6694"
+    },
+    {
+      "id": "3038e4de-57c8-80e0-802b-f3c465af0bef",
+      "cliente": "Agropecuaria OB",
+      "status": "Declinado",
+      "fase": [],
+      "tipo_operacao": "Agro",
+      "instrumento": "",
+      "valor": null,
+      "socio": "Danilo",
+      "originador": "Zeal / Brid",
+      "analisando": [],
+      "exclusividade": [
+        "Sim"
+      ],
+      "envio_investidores": "2026-02-09",
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/3038e4de57c880e0802bf3c465af0bef"
+    },
+    {
       "id": "3038e4de-57c8-80e6-9f88-cf1ab9dfcf42",
       "cliente": "Reserva da Fazenda",
       "status": "Declinado",
-      "fase": ["Declinado"],
+      "fase": [],
       "tipo_operacao": "CRI",
-      "instrumento": "CRI",
+      "instrumento": "",
       "valor": null,
       "socio": "Danilo",
       "originador": "Ativ",
@@ -324,44 +209,287 @@
       "notion_url": "https://www.notion.so/3038e4de57c880e69f88cf1ab9dfcf42"
     },
     {
+      "id": "3038e4de-57c8-80f9-948a-f2398c8b06aa",
+      "cliente": "Grupo Zanoni",
+      "status": "Declinado",
+      "fase": [],
+      "tipo_operacao": "Agro",
+      "instrumento": "",
+      "valor": null,
+      "socio": "Danilo",
+      "originador": "Zyn - Danilo",
+      "analisando": [],
+      "exclusividade": [],
+      "envio_investidores": "2026-02-09",
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/3038e4de57c880f9948af2398c8b06aa"
+    },
+    {
+      "id": "3038e4de-57c8-80ff-bb69-ed44a9a8733f",
+      "cliente": "Gran Art",
+      "status": "Morno",
+      "fase": [],
+      "tipo_operacao": "CRI",
+      "instrumento": "",
+      "valor": 29500000,
+      "socio": "Danilo",
+      "originador": "BM9",
+      "analisando": [
+        "Inco"
+      ],
+      "exclusividade": [
+        "Sim"
+      ],
+      "envio_investidores": "2026-01-12",
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/3038e4de57c880ffbb69ed44a9a8733f"
+    },
+    {
+      "id": "3048e4de-57c8-805a-84ee-e0bcbadc9c76",
+      "cliente": "Roça Agropecuaria",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "Agro",
+      "instrumento": "",
+      "valor": 20000000,
+      "socio": "Danilo",
+      "originador": "ZYN - Danilo",
+      "analisando": [
+        "Vinci",
+        "Pine",
+        "Fibra",
+        "Jive"
+      ],
+      "exclusividade": [
+        "Sim"
+      ],
+      "envio_investidores": "2026-02-11",
+      "cobrar_retorno": "2026-03-30",
+      "notion_url": "https://www.notion.so/3048e4de57c8805a84eee0bcbadc9c76"
+    },
+    {
+      "id": "3068e4de-57c8-800b-86ce-edf0795b9052",
+      "cliente": "Umã Inc.",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "CRI",
+      "instrumento": "",
+      "valor": 35000000,
+      "socio": "Danilo",
+      "originador": "Zyn - Danilo",
+      "analisando": [
+        "BS2",
+        "Bside",
+        "Fegik",
+        "Galapagos",
+        "GCB"
+      ],
+      "exclusividade": [
+        "Não"
+      ],
+      "envio_investidores": "2026-02-13",
+      "cobrar_retorno": "2026-03-30",
+      "notion_url": "https://www.notion.so/3068e4de57c8800b86ceedf0795b9052"
+    },
+    {
+      "id": "3068e4de-57c8-80ab-aa07-e62935dcad40",
+      "cliente": "Grupo Salas",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "CRI",
+      "instrumento": "",
+      "valor": 40500000,
+      "socio": "Danilo",
+      "originador": "BM9",
+      "analisando": [
+        "Inco"
+      ],
+      "exclusividade": [
+        "Sim"
+      ],
+      "envio_investidores": "2026-02-02",
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/3068e4de57c880abaa07e62935dcad40"
+    },
+    {
+      "id": "30a8e4de-57c8-8011-92e5-f4dd1b9c83a9",
+      "cliente": "RCS Tecnologia",
+      "status": "TS Assinado - enviado Operações",
+      "fase": [],
+      "tipo_operacao": "Crédito Bancário",
+      "instrumento": "",
+      "valor": null,
+      "socio": "Luiz",
+      "originador": "ZYN - Luiz",
+      "analisando": [
+        "GCB",
+        "Chimera",
+        "Galapagos",
+        "BTG",
+        "Luso"
+      ],
+      "exclusividade": [],
+      "envio_investidores": "2026-02-13",
+      "cobrar_retorno": "2026-02-23",
+      "notion_url": "https://www.notion.so/30a8e4de57c8801192e5f4dd1b9c83a9"
+    },
+    {
+      "id": "30a8e4de-57c8-8013-a12f-c3009ef6bb2b",
+      "cliente": "Caprem",
+      "status": "Morno",
+      "fase": [],
+      "tipo_operacao": "DCM",
+      "instrumento": "",
+      "valor": 30000000,
+      "socio": "Luiz",
+      "originador": "XPPJ - Danilo Almeida",
+      "analisando": [
+        "GCB",
+        "Luso"
+      ],
+      "exclusividade": [],
+      "envio_investidores": "2026-02-13",
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/30a8e4de57c88013a12fc3009ef6bb2b"
+    },
+    {
       "id": "30a8e4de-57c8-8057-a6ca-d77e162bf41b",
       "cliente": "Frysk",
       "status": "Declinado",
-      "fase": ["Declinado"],
+      "fase": [],
       "tipo_operacao": "Crédito Bancário",
-      "instrumento": "Nota comercial",
+      "instrumento": "",
       "valor": null,
       "socio": "Luiz",
       "originador": "Tytto",
-      "analisando": ["GCB"],
+      "analisando": [
+        "GCB"
+      ],
       "exclusividade": [],
       "envio_investidores": "2026-02-24",
       "cobrar_retorno": null,
       "notion_url": "https://www.notion.so/30a8e4de57c88057a6cad77e162bf41b"
     },
     {
-      "id": "3038e4de-57c8-80e0-802b-f3c465af0bef",
-      "cliente": "Agropecuaria OB",
-      "status": "Declinado",
-      "fase": ["Declinado"],
-      "tipo_operacao": "Agro",
-      "instrumento": "CPR - F",
-      "valor": null,
-      "socio": "Danilo",
-      "originador": "Zeal / Brid",
-      "analisando": [],
-      "exclusividade": ["Sim"],
-      "envio_investidores": "2026-02-09",
+      "id": "30a8e4de-57c8-8058-b8e7-c3c32575efb6",
+      "cliente": "Monte Carlo",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "FIDC",
+      "instrumento": "",
+      "valor": 30000000,
+      "socio": "Luiz",
+      "originador": "ZYN - Luiz",
+      "analisando": [
+        "EXT"
+      ],
+      "exclusividade": [],
+      "envio_investidores": "2026-02-24",
       "cobrar_retorno": null,
-      "notion_url": "https://www.notion.so/3038e4de57c880e0802bf3c465af0bef"
+      "notion_url": "https://www.notion.so/30a8e4de57c88058b8e7c3c32575efb6"
+    },
+    {
+      "id": "30a8e4de-57c8-805a-90d6-f7a86b6d6464",
+      "cliente": "Sudati",
+      "status": "Morno",
+      "fase": [],
+      "tipo_operacao": "Crédito Bancário",
+      "instrumento": "",
+      "valor": 30000000,
+      "socio": "Luiz",
+      "originador": "ZYN - Luiz",
+      "analisando": [
+        "GCB",
+        "Jive",
+        "Augme",
+        "Vinci"
+      ],
+      "exclusividade": [],
+      "envio_investidores": "2026-02-24",
+      "cobrar_retorno": "2026-02-25",
+      "notion_url": "https://www.notion.so/30a8e4de57c8805a90d6f7a86b6d6464"
+    },
+    {
+      "id": "30a8e4de-57c8-8080-aa71-d07d2a0ab02b",
+      "cliente": "Monte Carlo",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "Crédito Bancário",
+      "instrumento": "",
+      "valor": 20000000,
+      "socio": "Luiz",
+      "originador": "ZYN - Luiz",
+      "analisando": [
+        "IORQ",
+        "Luso Brasileiro"
+      ],
+      "exclusividade": [],
+      "envio_investidores": "2026-02-24",
+      "cobrar_retorno": "2026-03-27",
+      "notion_url": "https://www.notion.so/30a8e4de57c88080aa71d07d2a0ab02b"
+    },
+    {
+      "id": "30a8e4de-57c8-8092-9128-cdcc98a0cb25",
+      "cliente": "Macromaq",
+      "status": "Morno",
+      "fase": [],
+      "tipo_operacao": "DCM",
+      "instrumento": "",
+      "valor": 30000000,
+      "socio": "Luiz",
+      "originador": "ZYN - Luiz",
+      "analisando": [
+        "GCB",
+        "Jive",
+        "Augme",
+        "Verde"
+      ],
+      "exclusividade": [],
+      "envio_investidores": "2026-02-24",
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/30a8e4de57c880929128cdcc98a0cb25"
+    },
+    {
+      "id": "30a8e4de-57c8-809c-8211-ccf3164014d3",
+      "cliente": "Grupo IZVQ",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "DCM",
+      "instrumento": "",
+      "valor": 15000000,
+      "socio": "Luiz",
+      "originador": "XPPJ - Danilo Almeida",
+      "analisando": [
+        "GCB"
+      ],
+      "exclusividade": [],
+      "envio_investidores": "2026-02-23",
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/30a8e4de57c8809c8211ccf3164014d3"
+    },
+    {
+      "id": "30a8e4de-57c8-80a8-93aa-cb89f49e041f",
+      "cliente": "Perplan",
+      "status": "Declinado",
+      "fase": [],
+      "tipo_operacao": "Contrato Compra e Venda",
+      "instrumento": "",
+      "valor": null,
+      "socio": "Luiz",
+      "originador": "XPPJ - Danilo Almeida",
+      "analisando": [],
+      "exclusividade": [],
+      "envio_investidores": "2026-02-25",
+      "cobrar_retorno": "2026-03-09",
+      "notion_url": "https://www.notion.so/30a8e4de57c880a893aacb89f49e041f"
     },
     {
       "id": "30a8e4de-57c8-80af-a788-f2ce8a0684ce",
       "cliente": "Conexão Sistema de Proteses",
       "status": "Declinado",
-      "fase": ["Declinado"],
+      "fase": [],
       "tipo_operacao": "Crédito Bancário",
-      "instrumento": "Nota comercial",
+      "instrumento": "",
       "valor": null,
       "socio": "Luiz",
       "originador": "ZYN - Luiz",
@@ -372,28 +500,70 @@
       "notion_url": "https://www.notion.so/30a8e4de57c880afa788f2ce8a0684ce"
     },
     {
-      "id": "3038e4de-57c8-8002-b94f-c56a3e5cb16a",
-      "cliente": "Fibra Cotton",
-      "status": "Declinado",
-      "fase": ["Declinado"],
-      "tipo_operacao": "FIDC",
-      "instrumento": "FIDC",
-      "valor": null,
-      "socio": "Danilo",
-      "originador": "Zeal / Brid",
-      "analisando": [],
-      "exclusividade": ["Não"],
-      "envio_investidores": "2026-01-20",
-      "cobrar_retorno": "2026-02-24",
-      "notion_url": "https://www.notion.so/3038e4de57c88002b94fc56a3e5cb16a"
+      "id": "30a8e4de-57c8-80cb-aa4f-cb4d52768ef6",
+      "cliente": "Embraed",
+      "status": "Morno",
+      "fase": [],
+      "tipo_operacao": "CRI",
+      "instrumento": "",
+      "valor": 71000000,
+      "socio": "Luiz",
+      "originador": "ZYN - Luiz",
+      "analisando": [
+        "Inco",
+        "exes",
+        "RBR",
+        "Valora"
+      ],
+      "exclusividade": [],
+      "envio_investidores": "2026-02-25",
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/30a8e4de57c880cbaa4fcb4d52768ef6"
+    },
+    {
+      "id": "30b8e4de-57c8-806d-a626-d4d773c0d50d",
+      "cliente": "Magic - Orlando",
+      "status": "Frio",
+      "fase": [],
+      "tipo_operacao": "Contrato Compra e Venda",
+      "instrumento": "",
+      "valor": 50000000,
+      "socio": "Luiz",
+      "originador": "ZYN - Luiz",
+      "analisando": [
+        "SSG"
+      ],
+      "exclusividade": [],
+      "envio_investidores": "2026-01-08",
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/30b8e4de57c8806da626d4d773c0d50d"
+    },
+    {
+      "id": "30b8e4de-57c8-80dd-9fb8-ee08d146a3f9",
+      "cliente": "Splice",
+      "status": "Frio",
+      "fase": [],
+      "tipo_operacao": "Legal Claim",
+      "instrumento": "",
+      "valor": 9000000,
+      "socio": "Luiz",
+      "originador": "ZYN - Luiz",
+      "analisando": [
+        "GCB",
+        "Chimera"
+      ],
+      "exclusividade": [],
+      "envio_investidores": "2026-02-10",
+      "cobrar_retorno": "2026-02-25",
+      "notion_url": "https://www.notion.so/30b8e4de57c880dd9fb8ee08d146a3f9"
     },
     {
       "id": "30c8e4de-57c8-8052-959f-c9b45c6b4e7c",
-      "cliente": "Agrion",
+      "cliente": "Agrion ",
       "status": "Declinado",
-      "fase": ["Declinado"],
+      "fase": [],
       "tipo_operacao": "Antecipação de duplicata",
-      "instrumento": "Antecipação de recebíveis",
+      "instrumento": "",
       "valor": null,
       "socio": "Renato",
       "originador": "Facility",
@@ -402,6 +572,333 @@
       "envio_investidores": "2026-02-19",
       "cobrar_retorno": null,
       "notion_url": "https://www.notion.so/30c8e4de57c88052959fc9b45c6b4e7c"
+    },
+    {
+      "id": "30c8e4de-57c8-808e-a1a4-c71f071a501c",
+      "cliente": "PDG/IX",
+      "status": "Frio",
+      "fase": [],
+      "tipo_operacao": "NPL",
+      "instrumento": "",
+      "valor": null,
+      "socio": "Renato",
+      "originador": "ZYN - Renato",
+      "analisando": [],
+      "exclusividade": [],
+      "envio_investidores": "2026-02-18",
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/30c8e4de57c8808ea1a4c71f071a501c"
+    },
+    {
+      "id": "30c8e4de-57c8-80aa-88d8-de153fb48ad8",
+      "cliente": "Claudio Peças",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "DCM",
+      "instrumento": "",
+      "valor": 22000000,
+      "socio": "Danilo",
+      "originador": "Viapag -",
+      "analisando": [
+        "GCB"
+      ],
+      "exclusividade": [
+        "Não"
+      ],
+      "envio_investidores": "2026-02-25",
+      "cobrar_retorno": "2026-03-27",
+      "notion_url": "https://www.notion.so/30c8e4de57c880aa88d8de153fb48ad8"
+    },
+    {
+      "id": "3118e4de-57c8-8086-ad4a-f02e599a88ea",
+      "cliente": "Verderio",
+      "status": "Declinado",
+      "fase": [],
+      "tipo_operacao": "Crédito Bancário",
+      "instrumento": "",
+      "valor": null,
+      "socio": "Luiz",
+      "originador": "Zyn - Luiz",
+      "analisando": [],
+      "exclusividade": [
+        "Não"
+      ],
+      "envio_investidores": "2026-02-26",
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/3118e4de57c88086ad4af02e599a88ea"
+    },
+    {
+      "id": "3128e4de-57c8-8092-b8bc-d0c5212b2419",
+      "cliente": "Grupo Rodrigues ",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "Agro",
+      "instrumento": "",
+      "valor": 25000000,
+      "socio": "Danilo",
+      "originador": "Da Porteira",
+      "analisando": [
+        "Pine",
+        "Kijani",
+        "GCB"
+      ],
+      "exclusividade": [],
+      "envio_investidores": "2026-02-25",
+      "cobrar_retorno": "2026-03-24",
+      "notion_url": "https://www.notion.so/3128e4de57c88092b8bcd0c5212b2419"
+    },
+    {
+      "id": "3138e4de-57c8-8083-a34c-c023c9471017",
+      "cliente": "Grupo Giongo",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "Agro",
+      "instrumento": "",
+      "valor": 200000000,
+      "socio": "Danilo",
+      "originador": "BM9",
+      "analisando": [
+        "GCB",
+        "Vinci",
+        "exes",
+        "Jive",
+        "kinea"
+      ],
+      "exclusividade": [
+        "Não"
+      ],
+      "envio_investidores": "2026-02-26",
+      "cobrar_retorno": "2026-03-26",
+      "notion_url": "https://www.notion.so/3138e4de57c88083a34cc023c9471017"
+    },
+    {
+      "id": "3148e4de-57c8-80bf-8449-dc37129ea1c8",
+      "cliente": "Toledo Ferrari",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "Equity",
+      "instrumento": "",
+      "valor": 24000000,
+      "socio": "Renato",
+      "originador": "ZYN - Renato",
+      "analisando": [
+        "Inco"
+      ],
+      "exclusividade": [],
+      "envio_investidores": "2026-02-27",
+      "cobrar_retorno": "2026-03-25",
+      "notion_url": "https://www.notion.so/3148e4de57c880bf8449dc37129ea1c8"
+    },
+    {
+      "id": "3208e4de-57c8-808f-883e-d37edc1521ab",
+      "cliente": "Grupo Saul Francisco",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "Agro",
+      "instrumento": "",
+      "valor": 50000000,
+      "socio": "Danilo",
+      "originador": "Safra Agrofinance",
+      "analisando": [
+        "Exa",
+        "Galapagos",
+        "Vinci",
+        "Jive"
+      ],
+      "exclusividade": [],
+      "envio_investidores": "2026-03-11",
+      "cobrar_retorno": "2026-03-31",
+      "notion_url": "https://www.notion.so/3208e4de57c8808f883ed37edc1521ab"
+    },
+    {
+      "id": "3258e4de-57c8-80bd-a355-ca3ba5090e67",
+      "cliente": "New Inc.",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "CCB",
+      "instrumento": "",
+      "valor": 66000000,
+      "socio": "Renato",
+      "originador": "Zyn - Renato",
+      "analisando": [
+        "GCB",
+        "BS2",
+        "Fegik"
+      ],
+      "exclusividade": [
+        "Não"
+      ],
+      "envio_investidores": "2026-03-16",
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/3258e4de57c880bda355ca3ba5090e67"
+    },
+    {
+      "id": "3258e4de-57c8-80ca-a959-d67185aea44b",
+      "cliente": "Grupo União - Gran Laguna",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "Contrato Compra e Venda",
+      "instrumento": "",
+      "valor": 20000000,
+      "socio": "Danilo",
+      "originador": "BM9",
+      "analisando": [
+        "Inco"
+      ],
+      "exclusividade": [
+        "Sim"
+      ],
+      "envio_investidores": "2026-03-16",
+      "cobrar_retorno": "2026-03-26",
+      "notion_url": "https://www.notion.so/3258e4de57c880caa959d67185aea44b"
+    },
+    {
+      "id": "3268e4de-57c8-8084-a472-de00352b0216",
+      "cliente": "Net&Co",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "Antecipação de duplicata",
+      "instrumento": "",
+      "valor": 10000000,
+      "socio": "Renato",
+      "originador": "Olivar",
+      "analisando": [
+        "GCB"
+      ],
+      "exclusividade": [],
+      "envio_investidores": null,
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/3268e4de57c88084a472de00352b0216"
+    },
+    {
+      "id": "3298e4de-57c8-802d-9613-ce3022ce6ceb",
+      "cliente": "Grupo União -  Baron 55",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "CRI",
+      "instrumento": "",
+      "valor": 40000000,
+      "socio": "Danilo",
+      "originador": "BM9",
+      "analisando": [
+        "Fegik",
+        "GCB",
+        "Inco",
+        "Bside",
+        "BS2",
+        "Jive",
+        "Galapagos",
+        "exes"
+      ],
+      "exclusividade": [],
+      "envio_investidores": "2026-03-20",
+      "cobrar_retorno": "2026-03-30",
+      "notion_url": "https://www.notion.so/3298e4de57c8802d9613ce3022ce6ceb"
+    },
+    {
+      "id": "3298e4de-57c8-8042-9c72-e6a2ad3a2848",
+      "cliente": "Dahma Encalso",
+      "status": "Frio",
+      "fase": [],
+      "tipo_operacao": "CRI",
+      "instrumento": "",
+      "valor": 25000000,
+      "socio": "Luiz",
+      "originador": "ZYN - Luiz",
+      "analisando": [],
+      "exclusividade": [],
+      "envio_investidores": null,
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/3298e4de57c880429c72e6a2ad3a2848"
+    },
+    {
+      "id": "3298e4de-57c8-8054-8038-e629ea328167",
+      "cliente": "Dwell - New Horizon",
+      "status": "Morno",
+      "fase": [],
+      "tipo_operacao": "CRI",
+      "instrumento": "",
+      "valor": 14000000,
+      "socio": "",
+      "originador": "Aline",
+      "analisando": [],
+      "exclusividade": [],
+      "envio_investidores": "2026-03-24",
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/3298e4de57c880548038e629ea328167"
+    },
+    {
+      "id": "3298e4de-57c8-806a-afc8-cc02d6582cb8",
+      "cliente": "Paclog",
+      "status": "Morno",
+      "fase": [],
+      "tipo_operacao": "DCM",
+      "instrumento": "",
+      "valor": 20000000,
+      "socio": "Luiz",
+      "originador": "Zyn - Luiz",
+      "analisando": [],
+      "exclusividade": [],
+      "envio_investidores": null,
+      "cobrar_retorno": null,
+      "notion_url": "https://www.notion.so/3298e4de57c8806aafc8cc02d6582cb8"
+    },
+    {
+      "id": "32c8e4de-57c8-8096-9a57-c81ff4105dce",
+      "cliente": "Petrotorque",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "Crédito Bancário",
+      "instrumento": "",
+      "valor": 150000000,
+      "socio": "Renato",
+      "originador": "Olivar",
+      "analisando": [
+        "BS2"
+      ],
+      "exclusividade": [],
+      "envio_investidores": "2026-03-20",
+      "cobrar_retorno": "2026-03-27",
+      "notion_url": "https://www.notion.so/32c8e4de57c880969a57c81ff4105dce"
+    },
+    {
+      "id": "32c8e4de-57c8-80a3-b316-e433d0bc93fd",
+      "cliente": "Grupo Barco - Cota FIDC",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "Cota FIDC",
+      "instrumento": "",
+      "valor": 35000000,
+      "socio": "Danilo",
+      "originador": "Vipag",
+      "analisando": [
+        "EXT Capital",
+        "Fibra Asset"
+      ],
+      "exclusividade": [
+        "Não"
+      ],
+      "envio_investidores": "2026-03-23",
+      "cobrar_retorno": "2026-03-30",
+      "notion_url": "https://www.notion.so/32c8e4de57c880a3b316e433d0bc93fd"
+    },
+    {
+      "id": "32c8e4de-57c8-80c2-899c-fad78bf758a0",
+      "cliente": "Grupo Ivanoff",
+      "status": "Quente",
+      "fase": [],
+      "tipo_operacao": "Agro",
+      "instrumento": "",
+      "valor": 76000000,
+      "socio": "Danilo",
+      "originador": "Da Porteira",
+      "analisando": [
+        "Vinci"
+      ],
+      "exclusividade": [],
+      "envio_investidores": "2026-03-23",
+      "cobrar_retorno": "2026-04-01",
+      "notion_url": "https://www.notion.so/32c8e4de57c880c2899cfad78bf758a0"
     }
   ]
 }

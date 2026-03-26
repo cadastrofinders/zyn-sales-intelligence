@@ -20,7 +20,7 @@ import requests
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 PIPELINE_FILE = DATA_DIR / "pipeline.json"
-PIPELINE_DB_ID = "2f68e4de-57c8-811b-a1ec-000baba9429a"
+PIPELINE_DB_ID = "2f68e4de-57c8-81f3-bcaa-cc73f28fd5d5"
 NOTION_API = "https://api.notion.com/v1"
 NOTION_VERSION = "2022-06-28"
 
