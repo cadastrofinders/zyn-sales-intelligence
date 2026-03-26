@@ -435,6 +435,22 @@ def load_profiles():
     return pd.DataFrame()
 
 
+def fmt_br(value):
+    """Formato monetário brasileiro completo, sem abreviar (R$ 91.212,00)."""
+    if not isinstance(value, (int, float)):
+        return str(value) if value else "—"
+    if pd.isna(value) or value == 0:
+        return "—"
+    # Formata com separador de milhar (.) e decimal (,)
+    negativo = value < 0
+    v = abs(value)
+    if v >= 100:
+        formatted = f"{v:,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    else:
+        formatted = f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"-R$ {formatted}" if negativo else f"R$ {formatted}"
+
+
 def fmt(value):
     if not isinstance(value, (int, float)):
         return str(value) if value else "—"
@@ -550,16 +566,16 @@ if page == "Painel Executivo":
         st.markdown("### Resumo Executivo — 2026")
 
         r1, r2, r3, r4 = st.columns(4)
-        r1.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(_kpis["pipe_total"])}</div><div class="metric-label">Pipeline Total ({_kpis["pipe_count"]} deals)</div></div>', unsafe_allow_html=True)
-        r2.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(_kpis["rec_recebida"])}</div><div class="metric-label">Receita Recebida</div></div>', unsafe_allow_html=True)
-        r3.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(_kpis["saldo_atual"])}</div><div class="metric-label">Saldo Banco C6</div></div>', unsafe_allow_html=True)
-        r4.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(_kpis["burn_rate"])}/mês</div><div class="metric-label">Burn Rate</div></div>', unsafe_allow_html=True)
+        r1.markdown(f'<div class="metric-card"><div class="metric-value">{fmt_br(_kpis["pipe_total"])}</div><div class="metric-label">Pipeline Total ({_kpis["pipe_count"]} deals)</div></div>', unsafe_allow_html=True)
+        r2.markdown(f'<div class="metric-card"><div class="metric-value">{fmt_br(_kpis["rec_recebida"])}</div><div class="metric-label">Receita Recebida</div></div>', unsafe_allow_html=True)
+        r3.markdown(f'<div class="metric-card"><div class="metric-value">{fmt_br(_kpis["saldo_atual"])}</div><div class="metric-label">Saldo Banco C6</div></div>', unsafe_allow_html=True)
+        r4.markdown(f'<div class="metric-card"><div class="metric-value">{fmt_br(_kpis["burn_rate"])}/mês</div><div class="metric-label">Burn Rate</div></div>', unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
         r5, r6, r7, r8 = st.columns(4)
-        r5.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(_kpis["rec_confirmada"])}</div><div class="metric-label">Receita Confirmada</div></div>', unsafe_allow_html=True)
-        r6.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(_kpis["rec_prevista"])}</div><div class="metric-label">Receita Prevista</div></div>', unsafe_allow_html=True)
+        r5.markdown(f'<div class="metric-card"><div class="metric-value">{fmt_br(_kpis["rec_confirmada"])}</div><div class="metric-label">Receita Confirmada</div></div>', unsafe_allow_html=True)
+        r6.markdown(f'<div class="metric-card"><div class="metric-value">{fmt_br(_kpis["rec_prevista"])}</div><div class="metric-label">Receita Prevista</div></div>', unsafe_allow_html=True)
         r7.markdown(f'<div class="metric-card"><div class="metric-value">{_kpis["runway_meses"]:.1f} meses</div><div class="metric-label">Runway</div></div>', unsafe_allow_html=True)
         r8.markdown(f'<div class="metric-card"><div class="metric-value">{_kpis["leads_ativos"]}</div><div class="metric-label">Leads Ativos</div></div>', unsafe_allow_html=True)
 
@@ -576,7 +592,7 @@ if page == "Painel Executivo":
                            text_auto=True)
         fig_funil.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                                 height=300, showlegend=False, margin=dict(l=0,r=0,t=10,b=0))
-        fig_funil.update_yaxes(tickformat=",.0s")
+        fig_funil.update_yaxes(tickprefix="R$ ", separatethousands=True)
         fig_funil.update_traces(texttemplate='R$ %{y:,.0f}', textposition='outside')
         st.plotly_chart(fig_funil, use_container_width=True)
 
@@ -590,9 +606,9 @@ if page == "Painel Executivo":
             pk1.metric("Deals Ativos", len(_ativos))
             _quentes = len(_ativos[_ativos["Status"] == "Quente"]) if "Status" in _ativos.columns else 0
             pk2.metric("Quentes", _quentes)
-            pk3.metric("Pipeline Total", fmt(_ativos["Valor"].sum()))
+            pk3.metric("Pipeline Total", fmt_br(_ativos["Valor"].sum()))
             _ticket = _ativos["Valor"].dropna()
-            pk4.metric("Ticket Médio", fmt(_ticket.mean()) if len(_ticket) > 0 else "—")
+            pk4.metric("Ticket Médio", fmt_br(_ticket.mean()) if len(_ticket) > 0 else "—")
 
             # Deals por status
             st.markdown("---")
@@ -619,7 +635,7 @@ if page == "Painel Executivo":
                                       text="Deals", color_discrete_sequence=[GREEN])
                     fig_tipo.update_layout(height=280, margin=dict(l=0,r=20,t=10,b=0),
                                            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
-                    fig_tipo.update_xaxes(tickformat=",.0s")
+                    fig_tipo.update_xaxes(tickprefix="R$ ", separatethousands=True)
                     fig_tipo.update_traces(texttemplate='%{text} deals', textposition='auto')
                     st.plotly_chart(fig_tipo, use_container_width=True)
 
@@ -637,7 +653,7 @@ if page == "Painel Executivo":
                                 border-left:4px solid {GREEN};display:flex;justify-content:space-between;align-items:center;">
                         <div><strong>{sr['Sócio'] or '—'}</strong></div>
                         <div style="text-align:right;color:{NAVY};font-weight:600;">
-                            {sr['deals']} deals &nbsp;·&nbsp; {fmt(sr['volume'])}
+                            {sr['deals']} deals &nbsp;·&nbsp; {fmt_br(sr['volume'])}
                         </div>
                     </div>""", unsafe_allow_html=True)
 
@@ -662,10 +678,10 @@ if page == "Painel Executivo":
             _r_liq = rec_2026["valor_liq"].sum() if "valor_liq" in rec_2026.columns else 0
             _r_recebido = rec_2026[rec_2026["status"] == "Recebido"]["valor_liq"].sum() if "status" in rec_2026.columns else 0
             _r_finder = rec_2026["fee_finder_valor"].sum() if "fee_finder_valor" in rec_2026.columns and rec_2026["fee_finder_valor"].notna().any() else 0
-            rk1.metric("Receita Bruta", fmt(_r_bruto))
-            rk2.metric("Líquido ZYN", fmt(_r_liq))
-            rk3.metric("Recebido", fmt(_r_recebido))
-            rk4.metric("Fee Finders", fmt(_r_finder))
+            rk1.metric("Receita Bruta", fmt_br(_r_bruto))
+            rk2.metric("Líquido ZYN", fmt_br(_r_liq))
+            rk3.metric("Recebido", fmt_br(_r_recebido))
+            rk4.metric("Fee Finders", fmt_br(_r_finder))
 
             # Por mês
             st.markdown("---")
@@ -681,7 +697,7 @@ if page == "Painel Executivo":
                     fig_rm = px.bar(rec_mes, x="Mês", y="Líquido", color_discrete_sequence=[GREEN])
                     fig_rm.update_layout(height=300, margin=dict(l=0,r=0,t=10,b=0),
                                          plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
-                    fig_rm.update_yaxes(tickformat=",.0s")
+                    fig_rm.update_yaxes(tickprefix="R$ ", separatethousands=True)
                     st.plotly_chart(fig_rm, use_container_width=True)
 
             with col_rs:
@@ -709,7 +725,7 @@ if page == "Painel Executivo":
                                      color_discrete_sequence=[GREEN])
                     fig_rp.update_layout(height=300, margin=dict(l=0,r=20,t=10,b=0),
                                          plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
-                    fig_rp.update_xaxes(tickformat=",.0s")
+                    fig_rp.update_xaxes(tickprefix="R$ ", separatethousands=True)
                     st.plotly_chart(fig_rp, use_container_width=True)
 
             with col_rsoc:
@@ -752,10 +768,10 @@ if page == "Painel Executivo":
             _d_pendente = desp_2026[desp_2026["status"] == "Pendente"]["valor"].sum() if "status" in desp_2026.columns else 0
             _d_total = desp_2026["valor"].sum() if "valor" in desp_2026.columns else 0
             _meses_d = desp_2026[desp_2026["status"] == "Pago"]["mes"].nunique() if "mes" in desp_2026.columns else 1
-            dk1.metric("Total Despesas", fmt(_d_total))
-            dk2.metric("Pago", fmt(_d_pago))
-            dk3.metric("Pendente", fmt(_d_pendente))
-            dk4.metric("Burn Rate /mês", fmt(_d_pago / max(_meses_d, 1)))
+            dk1.metric("Total Despesas", fmt_br(_d_total))
+            dk2.metric("Pago", fmt_br(_d_pago))
+            dk3.metric("Pendente", fmt_br(_d_pendente))
+            dk4.metric("Burn Rate /mês", fmt_br(_d_pago / max(_meses_d, 1)))
 
             # Por categoria
             st.markdown("---")
@@ -770,7 +786,7 @@ if page == "Painel Executivo":
                                      color_discrete_sequence=["#E53935"])
                     fig_dc.update_layout(height=350, margin=dict(l=0,r=20,t=10,b=0),
                                          plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
-                    fig_dc.update_xaxes(tickformat=",.0s")
+                    fig_dc.update_xaxes(tickprefix="R$ ", separatethousands=True)
                     st.plotly_chart(fig_dc, use_container_width=True)
 
             with col_dm:
@@ -784,7 +800,7 @@ if page == "Painel Executivo":
                     fig_dm = px.bar(desp_mes, x="Mês", y="Valor", color_discrete_sequence=["#E53935"])
                     fig_dm.update_layout(height=350, margin=dict(l=0,r=0,t=10,b=0),
                                          plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
-                    fig_dm.update_yaxes(tickformat=",.0s")
+                    fig_dm.update_yaxes(tickprefix="R$ ", separatethousands=True)
                     st.plotly_chart(fig_dm, use_container_width=True)
 
             # Top despesas
@@ -811,10 +827,10 @@ if page == "Painel Executivo":
             _rec_prev_total = _fluxo["receita_prevista"].sum() if "receita_prevista" in _fluxo.columns else 0
             _desp_prev_total = _fluxo["despesa_prevista"].sum() if "despesa_prevista" in _fluxo.columns else 0
             _rec_real_total = _fluxo["receita_realizada"].sum() if "receita_realizada" in _fluxo.columns else 0
-            fk1.metric("Saldo C6 Atual", fmt(_saldo_banco))
-            fk2.metric("Receita Prev. Anual", fmt(_rec_prev_total))
-            fk3.metric("Receita Real. YTD", fmt(_rec_real_total))
-            fk4.metric("Despesa Prev. Anual", fmt(_desp_prev_total))
+            fk1.metric("Saldo C6 Atual", fmt_br(_saldo_banco))
+            fk2.metric("Receita Prev. Anual", fmt_br(_rec_prev_total))
+            fk3.metric("Receita Real. YTD", fmt_br(_rec_real_total))
+            fk4.metric("Despesa Prev. Anual", fmt_br(_desp_prev_total))
 
             # Gráfico receita vs despesa por mês
             st.markdown("---")
@@ -838,7 +854,7 @@ if page == "Painel Executivo":
                 margin=dict(l=0,r=20,t=10,b=0),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02),
             )
-            fig_fluxo.update_yaxes(tickformat=",.0s")
+            fig_fluxo.update_yaxes(tickprefix="R$ ", separatethousands=True)
             st.plotly_chart(fig_fluxo, use_container_width=True)
 
             # Saldo acumulado
@@ -859,7 +875,7 @@ if page == "Painel Executivo":
                     ))
                 fig_saldo.update_layout(height=300, margin=dict(l=0,r=20,t=10,b=0),
                                          plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
-                fig_saldo.update_yaxes(tickformat=",.0s")
+                fig_saldo.update_yaxes(tickprefix="R$ ", separatethousands=True)
                 st.plotly_chart(fig_saldo, use_container_width=True)
 
             # Tabela
@@ -972,7 +988,7 @@ if page == "Painel Executivo":
         st.markdown("### Indicadores de Performance")
 
         ik1, ik2, ik3, ik4 = st.columns(4)
-        ik1.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(_kpis["fee_medio"])}</div><div class="metric-label">Fee Médio Líq./Deal</div></div>', unsafe_allow_html=True)
+        ik1.markdown(f'<div class="metric-card"><div class="metric-value">{fmt_br(_kpis["fee_medio"])}</div><div class="metric-label">Fee Médio Líq./Deal</div></div>', unsafe_allow_html=True)
 
         # Taxa de conversão leads -> pipeline
         _conv_rate = (_kpis["leads_convertidos"] / max(_kpis["leads_total"], 1) * 100)
@@ -980,7 +996,7 @@ if page == "Painel Executivo":
 
         # Receita por sócio
         _rec_por_socio = _kpis["rec_recebida"] / 3 if _kpis["rec_recebida"] > 0 else 0
-        ik3.markdown(f'<div class="metric-card"><div class="metric-value">{fmt(_rec_por_socio)}</div><div class="metric-label">Receita/Sócio (média)</div></div>', unsafe_allow_html=True)
+        ik3.markdown(f'<div class="metric-card"><div class="metric-value">{fmt_br(_rec_por_socio)}</div><div class="metric-label">Receita/Sócio (média)</div></div>', unsafe_allow_html=True)
 
         # ROI: receita / despesa
         _roi = _kpis["rec_recebida"] / max(_kpis["desp_paga"], 1)
@@ -1016,21 +1032,21 @@ if page == "Painel Executivo":
                                            line=dict(color="#E53935", width=3)))
             fig_acum.update_layout(height=350, margin=dict(l=0,r=20,t=10,b=0),
                                     plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
-            fig_acum.update_yaxes(tickformat=",.0s")
+            fig_acum.update_yaxes(tickprefix="R$ ", separatethousands=True)
             st.plotly_chart(fig_acum, use_container_width=True)
 
         # Quadro resumo
         st.markdown("---")
         st.markdown("##### Quadro Resumo")
         resumo_data = [
-            {"Indicador": "Pipeline Total", "Valor": fmt(_kpis["pipe_total"]), "Obs": f"{_kpis['pipe_count']} deals ativos"},
-            {"Indicador": "Receita Bruta 2026", "Valor": fmt(_kpis["rec_total_bruto"]), "Obs": "Todas as receitas"},
-            {"Indicador": "Receita Líquida Recebida", "Valor": fmt(_kpis["rec_recebida"]), "Obs": "Efetivamente recebido"},
-            {"Indicador": "Receita Confirmada", "Valor": fmt(_kpis["rec_confirmada"]), "Obs": "Aguardando recebimento"},
-            {"Indicador": "Receita Prevista", "Valor": fmt(_kpis["rec_prevista"]), "Obs": "Projeção de closings"},
-            {"Indicador": "Despesas Pagas", "Valor": fmt(_kpis["desp_paga"]), "Obs": "YTD efetivo"},
-            {"Indicador": "Burn Rate Mensal", "Valor": fmt(_kpis["burn_rate"]), "Obs": "Média mensal paga"},
-            {"Indicador": "Saldo Banco C6", "Valor": fmt(_kpis["saldo_atual"]), "Obs": "Último saldo confirmado"},
+            {"Indicador": "Pipeline Total", "Valor": fmt_br(_kpis["pipe_total"]), "Obs": f"{_kpis['pipe_count']} deals ativos"},
+            {"Indicador": "Receita Bruta 2026", "Valor": fmt_br(_kpis["rec_total_bruto"]), "Obs": "Todas as receitas"},
+            {"Indicador": "Receita Líquida Recebida", "Valor": fmt_br(_kpis["rec_recebida"]), "Obs": "Efetivamente recebido"},
+            {"Indicador": "Receita Confirmada", "Valor": fmt_br(_kpis["rec_confirmada"]), "Obs": "Aguardando recebimento"},
+            {"Indicador": "Receita Prevista", "Valor": fmt_br(_kpis["rec_prevista"]), "Obs": "Projeção de closings"},
+            {"Indicador": "Despesas Pagas", "Valor": fmt_br(_kpis["desp_paga"]), "Obs": "YTD efetivo"},
+            {"Indicador": "Burn Rate Mensal", "Valor": fmt_br(_kpis["burn_rate"]), "Obs": "Média mensal paga"},
+            {"Indicador": "Saldo Banco C6", "Valor": fmt_br(_kpis["saldo_atual"]), "Obs": "Último saldo confirmado"},
             {"Indicador": "Runway", "Valor": f"{_kpis['runway_meses']:.1f} meses", "Obs": "Saldo / Burn Rate"},
             {"Indicador": "Leads Ativos", "Valor": str(_kpis["leads_ativos"]), "Obs": f"de {_kpis['leads_total']} total"},
             {"Indicador": "Conversão Lead→Pipe", "Valor": f"{_conv_rate:.0f}%", "Obs": f"{_kpis['leads_convertidos']} convertidos"},
@@ -2521,21 +2537,27 @@ elif page == "Atualizar":
         else:
             st.markdown(f"- **{desc}**: *não encontrado*")
 
-    # === SYNC PIPELINE NOTION ===
+    # === SYNC NOTION (TUDO) ===
     st.markdown("---")
-    st.subheader("Sincronizar Pipeline (Notion)")
-    sync_date = pipeline_sync_date()
-    st.info(f"Último sync do Pipeline: **{sync_date}**")
+    st.subheader("Sincronizar Notion (Tudo)")
+
+    _sc1, _sc2 = st.columns(2)
+    with _sc1:
+        st.info(f"Pipeline: **{pipeline_sync_date()}**")
+    with _sc2:
+        st.info(f"Painel Executivo: **{gestao_sync_date()}**")
+
     st.markdown("""
-    O Pipeline é sincronizado com o Notion semanalmente via Claude Code.
-    Use o botão abaixo para forçar uma atualização manual — o processo lê
-    cada deal do Notion e atualiza `pipeline.json`.
+    Sincroniza **tudo de uma vez**: Pipeline (deals) + Painel Executivo (Receitas, Despesas,
+    Fluxo de Caixa, Leads, Extrato C6). Atualização automática toda **segunda-feira às 9:30**.
     """)
 
-    pipe_sync_col1, pipe_sync_col2 = st.columns([1, 2])
-    with pipe_sync_col1:
-        if st.button("🔄 Sync Pipeline Notion", type="primary", key="btn_sync_pipeline"):
-            with st.spinner("Conectando ao Notion e lendo deals..."):
+    if st.button("🔄 Sincronizar Tudo (Notion)", type="primary", key="btn_sync_all"):
+        col_log1, col_log2 = st.columns(2)
+
+        # Sync Pipeline
+        with col_log1:
+            with st.spinner("Pipeline..."):
                 try:
                     sync_result = subprocess.run(
                         [sys.executable, "sync_notion_auto.py"],
@@ -2544,52 +2566,33 @@ elif page == "Atualizar":
                         timeout=300,
                     )
                     if sync_result.returncode == 0:
-                        st.success("✅ Pipeline sincronizado!")
-                        st.cache_data.clear()
-                        with st.expander("Log"):
+                        st.success("Pipeline sincronizado!")
+                        with st.expander("Log Pipeline"):
                             st.code(sync_result.stdout)
                     else:
-                        st.error("Erro no sync:")
+                        st.error("Erro Pipeline:")
                         st.code(sync_result.stderr or sync_result.stdout)
-                except FileNotFoundError:
-                    st.warning("Script `sync_notion_auto.py` não encontrado. Use o sync via Claude Code (`/sales sync`).")
-                except subprocess.TimeoutExpired:
-                    st.error("Timeout — sync demorou mais de 5 min.")
-    with pipe_sync_col2:
-        st.markdown(f"""
-        <div style="font-size:0.8rem;color:{GRAY};padding-top:0.5rem;">
-            <strong>Fontes:</strong> Notion Pipeline DB → pipeline.json<br>
-            <strong>Frequência:</strong> Semanal automático + manual sob demanda<br>
-            <strong>Campos:</strong> Cliente, Status, Analisando, Valor, Sócio, Fase, Tipo
-        </div>""", unsafe_allow_html=True)
+                except Exception as e:
+                    st.error(f"Pipeline: {e}")
 
-    # ── Sync Painel Executivo (Gestão) ──
-    st.markdown("---")
-    st.subheader("Sincronizar Painel Executivo (Notion)")
-    gestao_dt = gestao_sync_date()
-    st.info(f"Último sync do Painel: **{gestao_dt}**")
-    st.markdown("""
-    O Painel Executivo puxa dados de **6 databases** do Notion:
-    Receitas, Despesas, Fluxo de Caixa, Leads, Extrato Bancário e Pipeline.
-    """)
-
-    gest_col1, gest_col2 = st.columns([1, 2])
-    with gest_col1:
-        if st.button("🔄 Sync Painel Notion", type="primary", key="btn_sync_gestao"):
-            with st.spinner("Conectando ao Notion e lendo dados de gestão..."):
+        # Sync Gestão
+        with col_log2:
+            with st.spinner("Painel Executivo..."):
                 try:
                     sync_gestao()
-                    st.success("✅ Dados de gestão sincronizados!")
-                    st.cache_data.clear()
+                    st.success("Painel Executivo sincronizado!")
                 except Exception as e:
-                    st.error(f"Erro: {e}")
-    with gest_col2:
-        st.markdown(f"""
-        <div style="font-size:0.8rem;color:{GRAY};padding-top:0.5rem;">
-            <strong>Fontes:</strong> 6 DBs Notion → gestao_cache.json<br>
-            <strong>Dados:</strong> Receitas, Despesas, Fluxo de Caixa, Leads, Extrato C6<br>
-            <strong>Frequência:</strong> Semanal automático + manual sob demanda
-        </div>""", unsafe_allow_html=True)
+                    st.error(f"Painel: {e}")
+
+        st.cache_data.clear()
+        st.balloons()
+
+    st.markdown(f"""
+    <div style="font-size:0.8rem;color:{GRAY};margin-top:0.5rem;">
+        <strong>Pipeline:</strong> Notion Pipeline DB → pipeline.json (47 deals)<br>
+        <strong>Painel:</strong> 6 DBs Notion → gestao_cache.json (Receitas, Despesas, Fluxo, Leads, Extrato C6)<br>
+        <strong>Automático:</strong> Segunda-feira 9:30 via Claude Code
+    </div>""", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════
