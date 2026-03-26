@@ -21,6 +21,10 @@ from config.settings import DATA_DIR, OUTPUT_DIR
 from src.analyzer import build_investor_profiles, match_deal_to_investors
 from src.family_offices import load_family_offices, add_investor, search_by_appetite
 from src.report_generator import export_investor_profiles, export_deal_matching
+from src.notion_pipeline import (
+    pipeline_to_df, active_deals, deals_by_status,
+    investor_frequency, match_pipeline_to_cvm, pipeline_sync_date,
+)
 
 
 def to_excel_bytes(df: pd.DataFrame, sheet_name: str = "Dados") -> bytes:
@@ -274,17 +278,54 @@ st.markdown(f"""
         border-radius: 8px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.04);
         border-left: 3px solid {GREEN};
+        overflow: visible !important;
+        min-width: 0 !important;
     }}
     [data-testid="stMetricLabel"] {{
-        font-size: 0.72rem !important;
+        font-size: 0.68rem !important;
         text-transform: uppercase;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.03em;
         font-weight: 500;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+        line-height: 1.3 !important;
+    }}
+    [data-testid="stMetricLabel"] p {{
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
     }}
     [data-testid="stMetricValue"] {{
         font-family: 'Montserrat', sans-serif !important;
         font-weight: 700;
         color: {NAVY};
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+        word-break: break-word !important;
+        font-size: clamp(1rem, 2vw, 1.8rem) !important;
+        line-height: 1.2 !important;
+    }}
+    [data-testid="stMetricValue"] div {{
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+    }}
+
+    /* === Custom info row === */
+    .info-row {{
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
+        margin: 0.5rem 0 1rem;
+    }}
+    .info-row .info-item {{
+        font-size: 0.85rem;
+        color: {NAVY};
+    }}
+    .info-row .info-item strong {{
+        font-weight: 600;
     }}
 
     /* === Dividers === */
@@ -400,11 +441,15 @@ def fmt(value):
 # === SIDEBAR ===
 with st.sidebar:
     st.markdown("""<div class="sidebar-brand">
-        <div class="brand-zyn">ZYN<span class="brand-dot">.</span></div>
-        <div class="brand-capital">CAPITAL</div>
-        <div class="brand-sub">Sales Intelligence</div>
+        <svg viewBox="0 0 220 100" xmlns="http://www.w3.org/2000/svg" style="width:160px;height:auto;">
+            <text x="110" y="52" text-anchor="middle" fill="#FFFFFF" font-family="Montserrat,Helvetica,Arial,sans-serif" font-weight="700" font-size="52" letter-spacing="4">ZYN</text>
+            <text x="110" y="78" text-anchor="middle" fill="rgba(255,255,255,0.45)" font-family="Montserrat,Helvetica,Arial,sans-serif" font-weight="400" font-size="20" letter-spacing="8">CAPITAL</text>
+            <line x1="40" y1="86" x2="180" y2="86" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+            <text x="110" y="97" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-family="Montserrat,Helvetica,Arial,sans-serif" font-weight="400" font-size="8" letter-spacing="3">SALES INTELLIGENCE</text>
+        </svg>
     </div>""", unsafe_allow_html=True)
     st.markdown("---")
+    st.markdown('<p style="color:rgba(255,255,255,0.35);font-size:0.6rem;text-transform:uppercase;letter-spacing:0.12em;margin:0.3rem 0 0.2rem 0.5rem;">Mercado CVM</p>', unsafe_allow_html=True)
     page = st.radio(
         "Navegação",
         [
@@ -415,11 +460,47 @@ with st.sidebar:
             "Devedores",
             "Fundos com Caixa",
             "Matching",
+        ],
+        label_visibility="collapsed",
+    )
+    st.markdown('<p style="color:rgba(255,255,255,0.35);font-size:0.6rem;text-transform:uppercase;letter-spacing:0.12em;margin:0.8rem 0 0.2rem 0.5rem;">Pipeline & BI</p>', unsafe_allow_html=True)
+    page2 = st.radio(
+        "Pipeline",
+        [
+            "Pipeline",
+            "Pipeline x Investidores",
+            "Oportunidades",
+            "Alertas",
+        ],
+        label_visibility="collapsed",
+    )
+    st.markdown('<p style="color:rgba(255,255,255,0.35);font-size:0.6rem;text-transform:uppercase;letter-spacing:0.12em;margin:0.8rem 0 0.2rem 0.5rem;">Sistema</p>', unsafe_allow_html=True)
+    page3 = st.radio(
+        "Sistema",
+        [
             "Base Manual",
             "Atualizar",
         ],
         label_visibility="collapsed",
     )
+    # Resolve active page (only one radio can be active at a time but Streamlit radio groups are independent)
+    # Use session state to track which group was last clicked
+    if "last_page" not in st.session_state:
+        st.session_state.last_page = "Visão Geral"
+
+    all_pages = {
+        "mercado": ["Visão Geral", "Gestoras", "Fundos & Papéis", "Emissores", "Devedores", "Fundos com Caixa", "Matching"],
+        "pipeline": ["Pipeline", "Pipeline x Investidores", "Oportunidades", "Alertas"],
+        "sistema": ["Base Manual", "Atualizar"],
+    }
+
+    # Determine which page changed
+    for p, group in [(page, "mercado"), (page2, "pipeline"), (page3, "sistema")]:
+        if p != st.session_state.get(f"prev_{group}"):
+            st.session_state.last_page = p
+            st.session_state[f"prev_{group}"] = p
+
+    page = st.session_state.last_page
     st.markdown("---")
     positions = load_positions()
     if not positions.empty:
@@ -631,25 +712,26 @@ elif page == "Gestoras":
         if selected_fundo:
             f_positions = g_positions[g_positions["nome_fundo"] == selected_fundo].copy()
 
-            # KPIs completos do fundo
-            c1, c2, c3, c4, c5 = st.columns(5)
-            c1.metric("Volume RF Estruturada", fmt(f_positions["vl_posicao"].sum()))
-            c2.metric("Nº Papéis", len(f_positions))
+            # KPIs do fundo
             cnpj_f = f_positions["cnpj_fundo"].iloc[0]
-            c3.metric("CNPJ", cnpj_f)
             pl_val = f_positions["pl_fundo"].iloc[0] if "pl_fundo" in f_positions.columns and pd.notna(f_positions["pl_fundo"].iloc[0]) else None
-            c4.metric("PL Fundo", fmt(pl_val) if pl_val else "—")
             classe_val = f_positions["classe_anbima"].iloc[0] if "classe_anbima" in f_positions.columns and pd.notna(f_positions["classe_anbima"].iloc[0]) else "—"
-            c5.metric("Classe", str(classe_val)[:25])
-
-            # Info extra do fundo
-            info_cols = st.columns(3)
             admin_val = f_positions["administrador"].iloc[0] if "administrador" in f_positions.columns and pd.notna(f_positions["administrador"].iloc[0]) else "—"
-            info_cols[0].markdown(f"**Administrador**: {admin_val}")
             pub_val = f_positions["publico_alvo"].iloc[0] if "publico_alvo" in f_positions.columns and pd.notna(f_positions["publico_alvo"].iloc[0]) else "—"
-            info_cols[1].markdown(f"**Público Alvo**: {pub_val}")
             tipos_fundo = ", ".join(sorted(f_positions["tipo_ativo"].unique()))
-            info_cols[2].markdown(f"**Tipos**: {tipos_fundo}")
+
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Volume RF", fmt(f_positions["vl_posicao"].sum()))
+            c2.metric("N. Papéis", len(f_positions))
+            c3.metric("PL Fundo", fmt(pl_val) if pl_val else "—")
+
+            st.markdown(f"""<div class="info-row">
+                <div class="info-item"><strong>CNPJ</strong>: {cnpj_f}</div>
+                <div class="info-item"><strong>Administrador</strong>: {admin_val}</div>
+                <div class="info-item"><strong>Público Alvo</strong>: {pub_val}</div>
+                <div class="info-item"><strong>Tipos</strong>: {tipos_fundo}</div>
+                <div class="info-item"><strong>Classe</strong>: {classe_val}</div>
+            </div>""", unsafe_allow_html=True)
 
             # Charts lado a lado: por tipo e por indexador
             if len(f_positions["tipo_ativo"].unique()) > 1 or ("indexador" in f_positions.columns and f_positions["indexador"].notna().any()):
@@ -810,11 +892,29 @@ elif page == "Fundos & Papéis":
     if fundo_sel:
         f_pos = filtered[filtered["nome_fundo"] == fundo_sel].copy()
 
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Volume", fmt(f_pos["vl_posicao"].sum()))
-        c2.metric("Papéis", len(f_pos))
-        c3.metric("Gestora", f_pos["gestora"].iloc[0] if "gestora" in f_pos.columns else "—")
-        c4.metric("Classe", f_pos["classe_anbima"].iloc[0] if "classe_anbima" in f_pos.columns and pd.notna(f_pos["classe_anbima"].iloc[0]) else "—")
+        _vol = fmt(f_pos["vl_posicao"].sum())
+        _papeis = len(f_pos)
+        _cnpj = f_pos["cnpj_fundo"].iloc[0] if "cnpj_fundo" in f_pos.columns else "—"
+        _pl = fmt(f_pos["pl_fundo"].iloc[0]) if "pl_fundo" in f_pos.columns and pd.notna(f_pos["pl_fundo"].iloc[0]) else "—"
+        _classe = f_pos["classe_anbima"].iloc[0] if "classe_anbima" in f_pos.columns and pd.notna(f_pos["classe_anbima"].iloc[0]) else "—"
+        _gestora = f_pos["gestora"].iloc[0] if "gestora" in f_pos.columns else "—"
+        _admin = f_pos["administrador"].iloc[0] if "administrador" in f_pos.columns and pd.notna(f_pos["administrador"].iloc[0]) else "—"
+        _publico = f_pos["publico_alvo"].iloc[0] if "publico_alvo" in f_pos.columns and pd.notna(f_pos["publico_alvo"].iloc[0]) else "—"
+        _tipos = ", ".join(sorted(f_pos["tipo_ativo"].unique())) if "tipo_ativo" in f_pos.columns else "—"
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Volume RF", _vol)
+        c2.metric("N. Papéis", _papeis)
+        c3.metric("PL Fundo", _pl)
+
+        st.markdown(f"""<div class="info-row">
+            <div class="info-item"><strong>Gestora</strong>: {_gestora}</div>
+            <div class="info-item"><strong>CNPJ</strong>: {_cnpj}</div>
+            <div class="info-item"><strong>Administrador</strong>: {_admin}</div>
+            <div class="info-item"><strong>Público Alvo</strong>: {_publico}</div>
+            <div class="info-item"><strong>Tipos</strong>: {_tipos}</div>
+            <div class="info-item"><strong>Classe</strong>: {_classe}</div>
+        </div>""", unsafe_allow_html=True)
 
         # Tabela completa de papéis
         display_order = ["tipo_ativo", "devedor", "ticker_devedor", "emissor", "cd_ativo", "descricao_ativo", "isin", "vl_posicao", "qt_posicao",
@@ -931,12 +1031,12 @@ elif page == "Fundos & Papéis":
             em_pos = em_base[em_base["emissor"] == sel_emissor]
             cnpj_em = em_pos["cnpj_emissor"].iloc[0] if "cnpj_emissor" in em_pos.columns else "—"
 
-            c1, c2, c3, c4, c5 = st.columns(5)
+            c1, c2, c3, c4 = st.columns(4)
             c1.metric("Volume Total", fmt(em_pos["vl_posicao"].sum()))
             c2.metric("Fundos", em_pos["cnpj_fundo"].nunique())
             c3.metric("Gestoras", em_pos["gestora"].nunique())
             c4.metric("Papéis", len(em_pos))
-            c5.metric("CNPJ", cnpj_em)
+            st.markdown(f'<div class="info-row"><div class="info-item"><strong>CNPJ Emissor</strong>: {cnpj_em}</div></div>', unsafe_allow_html=True)
 
             # Gestoras que compram este emissor
             st.markdown("##### Gestoras compradoras")
@@ -1288,13 +1388,13 @@ elif page == "Devedores":
             dev_pos = dev_with_name[dev_with_name["devedor"] == sel_dev]
 
             st.markdown(f"### {sel_dev}")
-            d1, d2, d3, d4, d5 = st.columns(5)
+            d1, d2, d3, d4 = st.columns(4)
             d1.metric("Volume Total", fmt(dev_pos["vl_posicao"].sum()))
-            d2.metric("Fundos Compradores", dev_pos["cnpj_fundo"].nunique())
+            d2.metric("Fundos", dev_pos["cnpj_fundo"].nunique())
             d3.metric("Gestoras", dev_pos["gestora"].nunique() if "gestora" in dev_pos.columns else 0)
             d4.metric("Posições", len(dev_pos))
             tipos_dev = ", ".join(sorted(dev_pos["tipo_ativo"].unique()))
-            d5.metric("Instrumentos", tipos_dev)
+            st.markdown(f'<div class="info-row"><div class="info-item"><strong>Instrumentos</strong>: {tipos_dev}</div></div>', unsafe_allow_html=True)
 
             # Charts: volume por instrumento e por indexador
             chart_l, chart_r = st.columns(2)
@@ -1518,25 +1618,32 @@ elif page == "Fundos com Caixa":
     if fundo_sel_cx:
         f_pos = positions[positions["nome_fundo"] == fundo_sel_cx].copy()
 
-        # KPIs
-        dx1, dx2, dx3, dx4, dx5 = st.columns(5)
         pl_f = f_pos["pl_fundo"].iloc[0] if "pl_fundo" in f_pos.columns and pd.notna(f_pos["pl_fundo"].iloc[0]) else 0
         vol_f = f_pos["vl_posicao"].sum()
         caixa_f = pl_f - vol_f if pl_f > 0 else 0
+
+        dx1, dx2, dx3, dx4 = st.columns(4)
         dx1.metric("PL", fmt(pl_f))
         dx2.metric("Volume RF", fmt(vol_f))
-        dx3.metric("Caixa", fmt(caixa_f))
+        dx3.metric("Caixa Disp.", fmt(caixa_f))
         dx4.metric("% Alocado", f"{vol_f/pl_f*100:.1f}%" if pl_f > 0 else "—")
-        dx5.metric("Papéis", len(f_pos))
 
-        # Info do fundo
-        info_cx = st.columns(3)
         g_name = f_pos["gestora"].iloc[0] if "gestora" in f_pos.columns else "—"
-        info_cx[0].markdown(f"**Gestora**: {g_name}")
         admin = f_pos["administrador"].iloc[0] if "administrador" in f_pos.columns and pd.notna(f_pos["administrador"].iloc[0]) else "—"
-        info_cx[1].markdown(f"**Administrador**: {admin}")
+        publico = f_pos["publico_alvo"].iloc[0] if "publico_alvo" in f_pos.columns and pd.notna(f_pos["publico_alvo"].iloc[0]) else "—"
         classe = f_pos["classe_anbima"].iloc[0] if "classe_anbima" in f_pos.columns and pd.notna(f_pos["classe_anbima"].iloc[0]) else "—"
-        info_cx[2].markdown(f"**Classe**: {classe}")
+        _cnpj_cx = f_pos["cnpj_fundo"].iloc[0] if "cnpj_fundo" in f_pos.columns else "—"
+        _tipos_cx = ", ".join(sorted(f_pos["tipo_ativo"].unique())) if "tipo_ativo" in f_pos.columns else "—"
+
+        st.markdown(f"""<div class="info-row">
+            <div class="info-item"><strong>Gestora</strong>: {g_name}</div>
+            <div class="info-item"><strong>CNPJ</strong>: {_cnpj_cx}</div>
+            <div class="info-item"><strong>Administrador</strong>: {admin}</div>
+            <div class="info-item"><strong>Público Alvo</strong>: {publico}</div>
+            <div class="info-item"><strong>Tipos</strong>: {_tipos_cx}</div>
+            <div class="info-item"><strong>Classe</strong>: {classe}</div>
+            <div class="info-item"><strong>Papéis</strong>: {len(f_pos)}</div>
+        </div>""", unsafe_allow_html=True)
 
         # Charts
         ch1_cx, ch2_cx = st.columns(2)
@@ -1890,3 +1997,372 @@ elif page == "Atualizar":
             st.markdown(f"- **{desc}**: {fmod} ({size_str})")
         else:
             st.markdown(f"- **{desc}**: *não encontrado*")
+
+
+# ══════════════════════════════════════════
+# PIPELINE (Notion)
+# ══════════════════════════════════════════
+elif page == "Pipeline":
+    st.markdown("""<div class="main-header">
+        <h1>Pipeline ZYN Capital</h1>
+        <p>Operações ativas do Notion — sync semanal automático</p>
+    </div>""", unsafe_allow_html=True)
+
+    pipe_df = pipeline_to_df()
+    if pipe_df.empty:
+        st.warning("Nenhum dado de Pipeline. Execute o sync via /sales ou atualize manualmente.")
+        st.stop()
+
+    sync_dt = pipeline_sync_date()
+    active = pipe_df[pipe_df["Status"] != "Declinado"]
+    declinados = pipe_df[pipe_df["Status"] == "Declinado"]
+
+    # KPIs
+    vol_ativo = active["Valor"].dropna().sum()
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Deals Ativos", len(active))
+    k2.metric("Volume Ativo", fmt(vol_ativo))
+    k3.metric("Declinados", len(declinados))
+    k4.metric("Sync", sync_dt)
+
+    # --- Deals Ativos ---
+    st.markdown("---")
+    st.subheader("Operações Ativas")
+
+    # Filters
+    fc1, fc2, fc3 = st.columns(3)
+    with fc1:
+        pipe_status_f = st.multiselect("Status", active["Status"].unique().tolist(), key="pipe_st")
+    with fc2:
+        pipe_socio_f = st.multiselect("Sócio", active["Sócio"].unique().tolist(), key="pipe_soc")
+    with fc3:
+        pipe_tipo_f = st.multiselect("Tipo Operação", sorted(active["Tipo"].unique().tolist()), key="pipe_tipo")
+
+    disp = active.copy()
+    if pipe_status_f:
+        disp = disp[disp["Status"].isin(pipe_status_f)]
+    if pipe_socio_f:
+        disp = disp[disp["Sócio"].isin(pipe_socio_f)]
+    if pipe_tipo_f:
+        disp = disp[disp["Tipo"].isin(pipe_tipo_f)]
+
+    # Table with clickable Notion links
+    for _, row in disp.iterrows():
+        status_color = {"Quente": "#E53935", "Morno": "#FB8C00", "Frio": "#1E88E5", "TS Assinado - enviado Operações": GREEN}.get(row["Status"], GRAY)
+        val_str = fmt(row["Valor"]) if pd.notna(row["Valor"]) else "—"
+        analisando_str = ", ".join(row["Analisando"]) if isinstance(row["Analisando"], list) and row["Analisando"] else "—"
+        notion_url = row.get("Notion URL", "")
+
+        st.markdown(f"""
+        <div style="background:white;border-radius:8px;padding:1rem 1.2rem;margin-bottom:0.6rem;
+                    border-left:4px solid {status_color};box-shadow:0 1px 3px rgba(0,0,0,0.04);
+                    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+            <div style="flex:1;min-width:200px;">
+                <div style="font-weight:600;font-size:1rem;color:{NAVY};">{row['Cliente']}</div>
+                <div style="font-size:0.78rem;color:{GRAY};margin-top:0.2rem;">
+                    {row['Tipo']} · {row['Instrumento']} · {row['Sócio']} · {row['Originador']}
+                </div>
+            </div>
+            <div style="text-align:right;min-width:120px;">
+                <div style="font-weight:700;font-size:1.1rem;color:{NAVY};">{val_str}</div>
+                <span style="display:inline-block;background:{status_color};color:white;padding:0.15rem 0.5rem;
+                       border-radius:4px;font-size:0.7rem;font-weight:500;margin-top:0.2rem;">{row['Status']}</span>
+            </div>
+            <div style="width:100%;font-size:0.75rem;color:{GRAY};margin-top:0.3rem;">
+                <strong>Analisando:</strong> {analisando_str}
+                {"&nbsp;&nbsp;|&nbsp;&nbsp;<a href='" + notion_url + "' target='_blank' style='color:" + GREEN + ";text-decoration:none;font-weight:500;'>Abrir no Notion ↗</a>" if notion_url else ""}
+            </div>
+        </div>""", unsafe_allow_html=True)
+
+    # Charts
+    st.markdown("---")
+    ch1, ch2 = st.columns(2)
+    with ch1:
+        st.subheader("Volume por Tipo")
+        vol_tipo = active[active["Valor"].notna()].groupby("Tipo")["Valor"].sum().reset_index()
+        if not vol_tipo.empty:
+            fig_vt = px.pie(vol_tipo, values="Valor", names="Tipo", hole=0.4, color_discrete_sequence=CHART_COLORS)
+            fig_vt.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=300, margin=dict(l=0,r=0,t=10,b=0))
+            st.plotly_chart(fig_vt, use_container_width=True)
+
+    with ch2:
+        st.subheader("Deals por Sócio")
+        by_socio = active.groupby("Sócio").agg(deals=("Cliente", "count"), volume=("Valor", "sum")).reset_index()
+        if not by_socio.empty:
+            fig_soc = px.bar(by_socio, x="Sócio", y="deals", color_discrete_sequence=[NAVY],
+                             hover_data=["volume"])
+            fig_soc.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=300, margin=dict(l=0,r=20,t=10,b=0))
+            st.plotly_chart(fig_soc, use_container_width=True)
+
+    # Investidores mais acionados
+    st.markdown("---")
+    st.subheader("Investidores Mais Acionados")
+    inv_freq = investor_frequency(active)
+    if not inv_freq.empty:
+        fig_inv = px.bar(inv_freq.head(15), x="Investidor", y="Deals", color_discrete_sequence=[GREEN])
+        fig_inv.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=350,
+                              xaxis_tickangle=-45, margin=dict(l=0,r=20,t=10,b=100))
+        st.plotly_chart(fig_inv, use_container_width=True)
+        st.dataframe(inv_freq, use_container_width=True, height=300)
+
+    excel_btn(disp.drop(columns=["Analisando", "Notion URL"], errors="ignore"), "zyn_pipeline.xlsx", key="exp_pipeline")
+
+
+# ══════════════════════════════════════════
+# PIPELINE x INVESTIDORES (Matching CVM)
+# ══════════════════════════════════════════
+elif page == "Pipeline x Investidores":
+    st.markdown("""<div class="main-header">
+        <h1>Pipeline x Investidores CVM</h1>
+        <p>Cruzamento automático: cada deal matched com gestoras que compram o mesmo tipo de ativo</p>
+    </div>""", unsafe_allow_html=True)
+
+    pipe_df = active_deals()
+    positions = load_positions()
+
+    if pipe_df.empty:
+        st.warning("Nenhum deal ativo no Pipeline.")
+        st.stop()
+    if positions.empty:
+        st.warning("Nenhum dado CVM. Atualize primeiro.")
+        st.stop()
+
+    matching = match_pipeline_to_cvm(pipe_df, positions)
+
+    if matching.empty:
+        st.info("Nenhum matching encontrado.")
+        st.stop()
+
+    # Deal selector
+    deal_list = sorted(matching["Deal"].unique().tolist())
+    selected_deal = st.selectbox("Selecione o deal", ["Todos"] + deal_list, key="pxi_deal")
+
+    if selected_deal != "Todos":
+        matching = matching[matching["Deal"] == selected_deal]
+
+    # KPIs
+    k1, k2, k3 = st.columns(3)
+    k1.metric("Deals", matching["Deal"].nunique())
+    k2.metric("Gestoras Matching", matching["Gestora CVM"].nunique())
+    k3.metric("Já Analisando", matching[matching["Já Analisando"]]["Gestora CVM"].nunique())
+
+    # Results per deal
+    for deal_name in matching["Deal"].unique():
+        deal_data = matching[matching["Deal"] == deal_name]
+        deal_val = deal_data["Valor Deal"].iloc[0]
+        deal_tipo = deal_data["Tipo"].iloc[0]
+        notion_url = deal_data["Notion URL"].iloc[0] if "Notion URL" in deal_data.columns else ""
+
+        with st.expander(f"**{deal_name}** — {deal_tipo} — {fmt(deal_val) if pd.notna(deal_val) else '—'}", expanded=(selected_deal != "Todos")):
+            if notion_url:
+                st.markdown(f"<a href='{notion_url}' target='_blank' style='color:{GREEN};text-decoration:none;font-weight:500;font-size:0.85rem;'>Abrir no Notion ↗</a>", unsafe_allow_html=True)
+
+            tbl = deal_data[["Gestora CVM", "Volume Histórico", "Fundos Ativos", "Já Analisando"]].copy()
+            tbl["Volume Histórico"] = tbl["Volume Histórico"].apply(fmt)
+            tbl["Já Analisando"] = tbl["Já Analisando"].apply(lambda x: "Sim" if x else "—")
+            st.dataframe(tbl, use_container_width=True, height=min(len(tbl) * 40 + 50, 400))
+
+    # Export
+    st.markdown("---")
+    export_match = matching.copy()
+    export_match["Valor Deal"] = export_match["Valor Deal"].apply(lambda x: x if pd.notna(x) else 0)
+    excel_btn(export_match.drop(columns=["Notion URL"], errors="ignore"), "zyn_pipeline_matching.xlsx", key="exp_pxi")
+
+
+# ══════════════════════════════════════════
+# OPORTUNIDADES (Reverse Origination)
+# ══════════════════════════════════════════
+elif page == "Oportunidades":
+    st.markdown("""<div class="main-header">
+        <h1>Oportunidades de Mercado</h1>
+        <p>Caixa disponível x Tipos de ativo — onde há demanda para originação</p>
+    </div>""", unsafe_allow_html=True)
+
+    positions = load_positions()
+    if positions.empty:
+        st.error("Nenhum dado CVM.")
+        st.stop()
+
+    # Build fund-level with cash
+    fundos_opp = positions.groupby(["cnpj_fundo", "nome_fundo", "gestora"]).agg(
+        vol_rf=("vl_posicao", "sum"),
+        pl=("pl_fundo", "first"),
+        tipos=("tipo_ativo", lambda x: list(x.unique())),
+    ).reset_index()
+    fundos_opp = fundos_opp[fundos_opp["pl"].notna() & (fundos_opp["pl"] > 0)].copy()
+    fundos_opp["caixa"] = fundos_opp["pl"] - fundos_opp["vol_rf"]
+
+    # Aggregate available cash by asset type
+    tipo_demand = {}
+    for _, row in fundos_opp.iterrows():
+        if row["caixa"] > 0:
+            for t in row["tipos"]:
+                tipo_demand[t] = tipo_demand.get(t, 0) + row["caixa"]
+
+    demand_df = pd.DataFrame([
+        {"Tipo Ativo": k, "Caixa Disponível": v}
+        for k, v in sorted(tipo_demand.items(), key=lambda x: -x[1])
+    ])
+
+    if not demand_df.empty:
+        # KPIs
+        total_cash = fundos_opp[fundos_opp["caixa"] > 0]["caixa"].sum()
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Caixa Total", fmt(total_cash))
+        k2.metric("Fundos com Caixa", len(fundos_opp[fundos_opp["caixa"] > 0]))
+        k3.metric("Gestoras", fundos_opp[fundos_opp["caixa"] > 0]["gestora"].nunique())
+
+        st.markdown("---")
+        st.subheader("Demanda por Tipo de Ativo")
+        st.markdown("*Quanto de caixa disponível existe em fundos que já compram cada tipo*")
+
+        fig_opp = px.bar(demand_df, x="Tipo Ativo", y="Caixa Disponível", color_discrete_sequence=[GREEN])
+        fig_opp.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=400,
+                              margin=dict(l=0,r=20,t=10,b=0))
+        fig_opp.update_yaxes(tickformat=",.0s")
+        st.plotly_chart(fig_opp, use_container_width=True)
+
+        demand_disp = demand_df.copy()
+        demand_disp["Caixa Disponível"] = demand_disp["Caixa Disponível"].apply(fmt)
+        st.dataframe(demand_disp, use_container_width=True)
+
+    # Top gestoras com mais caixa
+    st.markdown("---")
+    st.subheader("Top Gestoras com Caixa para Alocação")
+
+    gest_cash = fundos_opp[fundos_opp["caixa"] > 0].groupby("gestora").agg(
+        caixa=("caixa", "sum"),
+        pl=("pl", "sum"),
+        fundos=("cnpj_fundo", "nunique"),
+    ).reset_index().sort_values("caixa", ascending=False).head(30)
+
+    if not gest_cash.empty:
+        gest_cash["pct"] = (gest_cash["caixa"] / gest_cash["pl"] * 100).round(1)
+        gest_disp = gest_cash.copy()
+        gest_exp = gest_cash.copy()
+        gest_disp["Caixa"] = gest_disp["caixa"].apply(fmt)
+        gest_disp["PL"] = gest_disp["pl"].apply(fmt)
+        gest_disp["% Livre"] = gest_disp["pct"].apply(lambda x: f"{x:.1f}%")
+        gest_disp = gest_disp.rename(columns={"gestora": "Gestora", "fundos": "Fundos"})
+        st.dataframe(gest_disp[["Gestora", "Caixa", "PL", "% Livre", "Fundos"]], use_container_width=True, height=400)
+        excel_btn(gest_exp.rename(columns={"gestora": "Gestora", "caixa": "Caixa", "pl": "PL", "pct": "% Livre", "fundos": "Fundos"}),
+                  "zyn_oportunidades.xlsx", key="exp_opp")
+
+    # Pipeline overlay
+    pipe_df = active_deals()
+    if not pipe_df.empty:
+        st.markdown("---")
+        st.subheader("Pipeline vs. Caixa de Mercado")
+        st.markdown("*Seus deals ativos vs. caixa disponível no mercado para o mesmo tipo*")
+
+        tipo_map_rev = {"CRI": "CRI", "CRA": "CRA", "Agro": "CPR-F", "DCM": "NC", "CCB": "NC",
+                        "Crédito Bancário": "NC", "FIDC": "DEBENTURE", "Equity": "NC", "Cota FIDC": "DEBENTURE"}
+
+        overlay_rows = []
+        for _, deal in pipe_df.iterrows():
+            tipo_cvm = tipo_map_rev.get(deal["Tipo"], "NC")
+            caixa_mercado = tipo_demand.get(tipo_cvm, 0)
+            overlay_rows.append({
+                "Deal": deal["Cliente"],
+                "Tipo": deal["Tipo"],
+                "Valor": deal["Valor"],
+                "Tipo CVM": tipo_cvm,
+                "Caixa Mercado": caixa_mercado,
+                "Cobertura": f"{caixa_mercado / deal['Valor']:.0f}x" if pd.notna(deal["Valor"]) and deal["Valor"] > 0 else "—",
+            })
+        overlay = pd.DataFrame(overlay_rows)
+        overlay_disp = overlay.copy()
+        overlay_disp["Valor"] = overlay_disp["Valor"].apply(lambda x: fmt(x) if pd.notna(x) else "—")
+        overlay_disp["Caixa Mercado"] = overlay_disp["Caixa Mercado"].apply(fmt)
+        st.dataframe(overlay_disp[["Deal", "Tipo", "Valor", "Tipo CVM", "Caixa Mercado", "Cobertura"]], use_container_width=True)
+
+
+# ══════════════════════════════════════════
+# ALERTAS
+# ══════════════════════════════════════════
+elif page == "Alertas":
+    st.markdown("""<div class="main-header">
+        <h1>Alertas & Follow-ups</h1>
+        <p>Retornos pendentes, deals sem ação e movimentações relevantes</p>
+    </div>""", unsafe_allow_html=True)
+
+    pipe_df = pipeline_to_df()
+    if pipe_df.empty:
+        st.warning("Nenhum dado de Pipeline.")
+        st.stop()
+
+    active = pipe_df[pipe_df["Status"] != "Declinado"].copy()
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # --- Retornos vencidos ---
+    st.subheader("Retornos Vencidos")
+    retornos = active[active["Cobrar Retorno"].notna()].copy()
+    retornos["vencido"] = retornos["Cobrar Retorno"] < today
+    vencidos = retornos[retornos["vencido"]]
+
+    if not vencidos.empty:
+        for _, row in vencidos.iterrows():
+            notion_url = row.get("Notion URL", "")
+            link = f"<a href='{notion_url}' target='_blank' style='color:{GREEN};text-decoration:none;'>Abrir ↗</a>" if notion_url else ""
+            st.markdown(f"""
+            <div style="background:#FFF3E0;border-radius:6px;padding:0.8rem 1rem;margin-bottom:0.4rem;
+                        border-left:3px solid #E65100;font-size:0.88rem;">
+                <strong>{row['Cliente']}</strong> — Retorno era {row['Cobrar Retorno']}
+                &nbsp;·&nbsp; {row['Sócio']} &nbsp;·&nbsp; {row['Tipo']}
+                &nbsp;&nbsp;{link}
+            </div>""", unsafe_allow_html=True)
+    else:
+        st.success("Nenhum retorno vencido.")
+
+    # --- Retornos próximos (7 dias) ---
+    st.markdown("---")
+    st.subheader("Retornos nos Próximos 7 Dias")
+    from datetime import timedelta
+    prox_7 = datetime.now() + timedelta(days=7)
+    prox_7_str = prox_7.strftime("%Y-%m-%d")
+    proximos = retornos[(retornos["Cobrar Retorno"] >= today) & (retornos["Cobrar Retorno"] <= prox_7_str)]
+
+    if not proximos.empty:
+        for _, row in proximos.iterrows():
+            notion_url = row.get("Notion URL", "")
+            link = f"<a href='{notion_url}' target='_blank' style='color:{GREEN};text-decoration:none;'>Abrir ↗</a>" if notion_url else ""
+            st.markdown(f"""
+            <div style="background:#E3F2FD;border-radius:6px;padding:0.8rem 1rem;margin-bottom:0.4rem;
+                        border-left:3px solid #1565C0;font-size:0.88rem;">
+                <strong>{row['Cliente']}</strong> — Retorno: {row['Cobrar Retorno']}
+                &nbsp;·&nbsp; {row['Sócio']} &nbsp;·&nbsp; {row['Tipo']}
+                &nbsp;&nbsp;{link}
+            </div>""", unsafe_allow_html=True)
+    else:
+        st.info("Nenhum retorno agendado para os próximos 7 dias.")
+
+    # --- Deals sem investidor analisando ---
+    st.markdown("---")
+    st.subheader("Deals sem Investidor Definido")
+    sem_inv = active[active["Analisando"].apply(lambda x: not x if isinstance(x, list) else True)]
+    if not sem_inv.empty:
+        for _, row in sem_inv.iterrows():
+            notion_url = row.get("Notion URL", "")
+            link = f"<a href='{notion_url}' target='_blank' style='color:{GREEN};text-decoration:none;'>Abrir ↗</a>" if notion_url else ""
+            val_str = fmt(row["Valor"]) if pd.notna(row["Valor"]) else "—"
+            st.markdown(f"""
+            <div style="background:#FCE4EC;border-radius:6px;padding:0.8rem 1rem;margin-bottom:0.4rem;
+                        border-left:3px solid #C62828;font-size:0.88rem;">
+                <strong>{row['Cliente']}</strong> — {row['Tipo']} — {val_str}
+                &nbsp;·&nbsp; {row['Sócio']}
+                &nbsp;&nbsp;{link}
+            </div>""", unsafe_allow_html=True)
+    else:
+        st.success("Todos os deals ativos têm investidores analisando.")
+
+    # --- Resumo Pipeline ---
+    st.markdown("---")
+    st.subheader("Resumo do Pipeline")
+    status_counts = deals_by_status(pipe_df)
+    if status_counts:
+        res_data = pd.DataFrame([{"Status": k, "Deals": v} for k, v in status_counts.items()])
+        fig_res = px.pie(res_data, values="Deals", names="Status", hole=0.4,
+                         color_discrete_sequence=CHART_COLORS)
+        fig_res.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                              height=300, margin=dict(l=0,r=0,t=10,b=0))
+        st.plotly_chart(fig_res, use_container_width=True)
