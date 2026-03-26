@@ -2097,12 +2097,12 @@ elif page == "Pipeline":
 
 
 # ══════════════════════════════════════════
-# PIPELINE x INVESTIDORES (Matching CVM)
+# PIPELINE x INVESTIDORES (Matching CVM + Score de Aderência)
 # ══════════════════════════════════════════
 elif page == "Pipeline x Investidores":
     st.markdown("""<div class="main-header">
         <h1>Pipeline x Investidores CVM</h1>
-        <p>Cruzamento automático: cada deal matched com gestoras que compram o mesmo tipo de ativo</p>
+        <p>Score de Aderência: ranking de gestoras por compatibilidade com cada deal (volume, ticket, diversificação)</p>
     </div>""", unsafe_allow_html=True)
 
     pipe_df = active_deals()
@@ -2121,45 +2121,72 @@ elif page == "Pipeline x Investidores":
         st.info("Nenhum matching encontrado.")
         st.stop()
 
-    # Deal selector
+    # Filters
+    f1, f2, f3 = st.columns(3)
     deal_list = sorted(matching["Deal"].unique().tolist())
-    selected_deal = st.selectbox("Selecione o deal", ["Todos"] + deal_list, key="pxi_deal")
+    selected_deal = f1.selectbox("Deal", ["Todos"] + deal_list, key="pxi_deal")
+    min_score = f2.slider("Score mínimo", 0, 100, 0, key="pxi_score")
+    show_only_new = f3.checkbox("Apenas novos (não analisando)", key="pxi_new")
 
     if selected_deal != "Todos":
         matching = matching[matching["Deal"] == selected_deal]
+    if min_score > 0:
+        matching = matching[matching["Score"] >= min_score]
+    if show_only_new:
+        matching = matching[~matching["Já Analisando"]]
 
     # KPIs
-    k1, k2, k3 = st.columns(3)
+    k1, k2, k3, k4 = st.columns(4)
     k1.metric("Deals", matching["Deal"].nunique())
     k2.metric("Gestoras Matching", matching["Gestora CVM"].nunique())
-    k3.metric("Já Analisando", matching[matching["Já Analisando"]]["Gestora CVM"].nunique())
+    ja_count = matching[matching["Já Analisando"]]["Gestora CVM"].nunique()
+    k3.metric("Já Analisando", ja_count)
+    novos = matching[~matching["Já Analisando"]]["Gestora CVM"].nunique()
+    k4.metric("Novos Targets", novos)
+
+    # Score legend
+    st.markdown(f"""
+    <div style="display:flex;gap:1.5rem;margin:0.5rem 0 1rem;font-size:0.75rem;color:{GRAY};">
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#2E7D4F;margin-right:4px;"></span> Score 70+ (Alta aderência)</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#E6A817;margin-right:4px;"></span> Score 40-69 (Média)</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#D4526E;margin-right:4px;"></span> Score &lt;40 (Baixa)</span>
+        <span>&nbsp;&nbsp;|&nbsp;&nbsp;Volume = posição histórica no tipo · Ticket = média por operação · Fundos = nº de veículos ativos</span>
+    </div>""", unsafe_allow_html=True)
 
     # Results per deal
     for deal_name in matching["Deal"].unique():
-        deal_data = matching[matching["Deal"] == deal_name]
+        deal_data = matching[matching["Deal"] == deal_name].copy()
         deal_val = deal_data["Valor Deal"].iloc[0]
         deal_tipo = deal_data["Tipo"].iloc[0]
         notion_url = deal_data["Notion URL"].iloc[0] if "Notion URL" in deal_data.columns else ""
         val_str = fmt(deal_val) if pd.notna(deal_val) else "—"
-        link_html = f"&nbsp;&nbsp;<a href='{notion_url}' target='_blank' style='color:{GREEN};text-decoration:none;font-weight:500;'>Notion ↗</a>" if notion_url else ""
+        n_ja = deal_data["Já Analisando"].sum()
+        n_novos = len(deal_data) - n_ja
+        link_html = f"&nbsp;&nbsp;<a href='{notion_url}' target='_blank' style='color:{GREEN};text-decoration:none;font-weight:500;font-size:0.8rem;'>Notion ↗</a>" if notion_url else ""
 
         st.markdown(f"""
         <div style="background:white;border-radius:8px;padding:1rem 1.2rem;margin:0.8rem 0 0.3rem;
                     border-left:4px solid {GREEN};box-shadow:0 1px 3px rgba(0,0,0,0.04);">
             <span style="font-weight:700;font-size:1rem;color:{NAVY};">{deal_name}</span>
             <span style="color:{GRAY};font-size:0.85rem;"> — {deal_tipo} — {val_str}</span>
+            <span style="color:{GRAY};font-size:0.75rem;margin-left:1rem;">{n_ja} analisando · {n_novos} novos targets</span>
             {link_html}
         </div>""", unsafe_allow_html=True)
 
-        tbl = deal_data[["Gestora CVM", "Volume Histórico", "Fundos Ativos", "Já Analisando"]].copy()
+        tbl = deal_data[["Gestora CVM", "Score", "Volume Histórico", "Ticket Médio", "Fundos Ativos", "Já Analisando"]].copy()
         tbl["Volume Histórico"] = tbl["Volume Histórico"].apply(fmt)
-        tbl["Já Analisando"] = tbl["Já Analisando"].apply(lambda x: "Sim" if x else "—")
-        st.dataframe(tbl, use_container_width=True, height=min(len(tbl) * 40 + 50, 400))
+        tbl["Ticket Médio"] = tbl["Ticket Médio"].apply(fmt)
+        tbl["Já Analisando"] = tbl["Já Analisando"].apply(lambda x: "✔ Sim" if x else "—")
+        tbl = tbl.sort_values("Score", ascending=False).reset_index(drop=True)
+        tbl.index = tbl.index + 1
+        tbl.index.name = "#"
+        st.dataframe(tbl, use_container_width=True, height=min(len(tbl) * 40 + 50, 500))
 
     # Export
     st.markdown("---")
     export_match = matching.copy()
     export_match["Valor Deal"] = export_match["Valor Deal"].apply(lambda x: x if pd.notna(x) else 0)
+    export_match["Volume Histórico"] = export_match["Volume Histórico"].apply(lambda x: x if pd.notna(x) else 0)
     excel_btn(export_match.drop(columns=["Notion URL"], errors="ignore"), "zyn_pipeline_matching.xlsx", key="exp_pxi")
 
 
