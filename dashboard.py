@@ -594,6 +594,7 @@ with st.sidebar:
     # ── External Links ──
     st.markdown("---")
     st.link_button("Análise de Crédito", "https://zyn-credit-engine.streamlit.app/", use_container_width=True)
+    st.link_button("Sistema Financeiro", "https://zyn-financeiro.streamlit.app/", use_container_width=True)
 
     # ── Footer ──
     st.markdown("---")
