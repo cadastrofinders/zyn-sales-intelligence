@@ -29,6 +29,10 @@ from src.notion_gestao import (
     receitas_df, despesas_df, fluxo_df, leads_df,
     kpis_resumo, gestao_sync_date, sync_gestao, load_cache,
 )
+from src.us_market import (
+    load_us_holdings, load_us_profiles, refresh_us_data,
+    us_market_summary, match_us_investors_to_deal,
+)
 
 
 def to_excel_bytes(df: pd.DataFrame, sheet_name: str = "Dados") -> bytes:
@@ -513,6 +517,11 @@ with st.sidebar:
         "👤  Devedores",
         "💰  Fundos com Caixa",
         "🔗  Matching",
+        "── Mercado US ──────",
+        "🇺🇸  Visão Geral US",
+        "🏦  Fund Managers",
+        "📊  Holdings Brasil",
+        "🎯  Matching US",
         "── Gestão ──────",
         "📋  Pipeline",
         "🔄  Pipeline x Investidores",
@@ -524,7 +533,7 @@ with st.sidebar:
         "✏️  Base Manual",
         "🔃  Atualizar",
     ]
-    _SEPS = {"── Market Intel ────", "── Gestão ──────", "── Mercado ─────", "── Config ──────"}
+    _SEPS = {"── Market Intel ────", "── Mercado US ──────", "── Gestão ──────", "── Mercado ─────", "── Config ──────"}
 
     page_sel = st.radio(
         "Navegação",
@@ -3177,6 +3186,348 @@ elif page == "Alertas":
         fig_res.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                               height=300, margin=dict(l=0,r=0,t=10,b=0))
         st.plotly_chart(fig_res, use_container_width=True)
+
+
+# ══════════════════════════════════════════
+# MERCADO US — Visão Geral
+# ══════════════════════════════════════════
+elif page == "Visão Geral US":
+    st.markdown("""<div class="main-header">
+        <h1>🇺🇸 Mercado US — Visão Geral</h1>
+        <p>Investidores americanos com exposição ao Brasil — Fonte: SEC EDGAR / N-PORT</p>
+    </div>""", unsafe_allow_html=True)
+
+    us_holdings = load_us_holdings(DATA_DIR)
+    us_profiles = load_us_profiles(DATA_DIR)
+
+    if us_holdings.empty:
+        st.warning("Base US ainda não carregada. Clique abaixo para baixar dados do SEC EDGAR.")
+        if st.button("🔄 Baixar dados SEC EDGAR", type="primary", key="us_download"):
+            progress = st.progress(0, text="Iniciando download SEC EDGAR...")
+            def update_progress(pct, msg):
+                progress.progress(pct, text=msg)
+            us_holdings, us_profiles = refresh_us_data(
+                DATA_DIR, max_managers=50, progress_callback=update_progress
+            )
+            if not us_holdings.empty:
+                st.success(f"✅ {len(us_profiles)} gestoras US com exposição Brasil identificadas!")
+                st.rerun()
+            else:
+                st.error("Nenhum dado encontrado. Verifique conexão com SEC EDGAR.")
+    else:
+        summary = us_market_summary(us_holdings, us_profiles)
+
+        # KPI cards
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.metric("Gestoras US", f"{summary['total_managers']}")
+        with c2:
+            st.metric("Posições Brasil", f"{summary['total_positions']:,}")
+        with c3:
+            vol = summary['total_volume_usd']
+            if vol >= 1e9:
+                st.metric("Volume Total", f"US$ {vol/1e9:.1f}B")
+            else:
+                st.metric("Volume Total", f"US$ {vol/1e6:.0f}M")
+        with c4:
+            corp_pct = summary['vol_corporate'] / max(summary['total_volume_usd'], 1) * 100
+            st.metric("% Corporativo", f"{corp_pct:.0f}%")
+
+        st.markdown("---")
+
+        # Two columns: top managers + top issuers
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.subheader("Top Gestoras US — Exposição Brasil")
+            if us_profiles is not None and not us_profiles.empty:
+                top10 = us_profiles.nlargest(10, "Vol. Brasil (USD)").copy()
+                top10["Vol. Brasil (USD)"] = top10["Vol. Brasil (USD)"].apply(
+                    lambda x: f"US$ {x/1e6:.0f}M" if x < 1e9 else f"US$ {x/1e9:.1f}B"
+                )
+                st.dataframe(
+                    top10[["Manager", "Vol. Brasil (USD)", "% Corporativo", "Nº Posições BR"]],
+                    use_container_width=True, hide_index=True,
+                )
+
+        with col2:
+            st.subheader("Top Emissores Brasileiros (por volume US)")
+            if summary["top_issuers"]:
+                issuers_df = pd.DataFrame(
+                    [{"Emissor": k[:50], "Volume USD": v} for k, v in summary["top_issuers"].items()]
+                )
+                fig = px.bar(
+                    issuers_df, x="Volume USD", y="Emissor", orientation="h",
+                    color_discrete_sequence=["#2E7D4F"],
+                )
+                fig.update_layout(
+                    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                    height=400, margin=dict(l=0, r=0, t=10, b=0),
+                    yaxis=dict(autorange="reversed"),
+                    xaxis_title="Volume (USD)",
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown("---")
+
+        # Sovereign vs Corporate breakdown
+        st.subheader("Soberano vs Corporativo")
+        sov_corp = pd.DataFrame([
+            {"Tipo": "Soberano", "Volume": summary["vol_sovereign"]},
+            {"Tipo": "Corporativo", "Volume": summary["vol_corporate"]},
+        ])
+        fig_pie = px.pie(
+            sov_corp, values="Volume", names="Tipo",
+            color_discrete_sequence=["#223040", "#2E7D4F"],
+            hole=0.4,
+        )
+        fig_pie.update_layout(height=300, margin=dict(l=0, r=0, t=10, b=0))
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+        # Refresh button
+        st.markdown("---")
+        col_r1, col_r2 = st.columns([3, 1])
+        with col_r2:
+            if st.button("🔄 Atualizar SEC", key="us_refresh"):
+                progress = st.progress(0, text="Atualizando...")
+                def update_progress(pct, msg):
+                    progress.progress(pct, text=msg)
+                us_holdings, us_profiles = refresh_us_data(
+                    DATA_DIR, max_managers=50, progress_callback=update_progress
+                )
+                st.success("Dados atualizados!")
+                st.rerun()
+
+
+# ══════════════════════════════════════════
+# MERCADO US — Fund Managers
+# ══════════════════════════════════════════
+elif page == "Fund Managers":
+    st.markdown("""<div class="main-header">
+        <h1>🏦 Fund Managers</h1>
+        <p>Gestoras americanas com posições em ativos brasileiros</p>
+    </div>""", unsafe_allow_html=True)
+
+    us_profiles = load_us_profiles(DATA_DIR)
+
+    if us_profiles.empty:
+        st.info("Base US não carregada. Vá em **Visão Geral US** para baixar dados.")
+    else:
+        # Search
+        search = st.text_input("🔍 Buscar gestora", "", key="us_mgr_search")
+        if search:
+            us_profiles = us_profiles[
+                us_profiles["Manager"].str.contains(search, case=False, na=False)
+            ]
+
+        st.caption(f"{len(us_profiles)} gestoras encontradas")
+
+        # Format for display
+        display_df = us_profiles.copy()
+        display_df["Vol. Brasil"] = display_df["Vol. Brasil (USD)"].apply(
+            lambda x: f"US$ {x/1e6:.0f}M" if x < 1e9 else f"US$ {x/1e9:.1f}B"
+        )
+        display_df["Vol. Corporativo"] = display_df["Vol. Corporativo (USD)"].apply(
+            lambda x: f"US$ {x/1e6:.0f}M" if x < 1e9 else f"US$ {x/1e9:.1f}B"
+        )
+
+        st.dataframe(
+            display_df[["Manager", "Vol. Brasil", "Vol. Corporativo",
+                        "% Corporativo", "Nº Fundos", "Nº Posições BR",
+                        "Prazo Médio (anos)", "Top Emissores BR", "Filing Date"]],
+            use_container_width=True, hide_index=True, height=600,
+        )
+
+        # Export
+        excel_btn(us_profiles, "zyn_us_fund_managers.xlsx", key="us_mgr_export")
+
+        # Detail view
+        st.markdown("---")
+        st.subheader("Detalhe por Gestora")
+        selected = st.selectbox(
+            "Selecione uma gestora", us_profiles["Manager"].tolist(), key="us_mgr_detail"
+        )
+        if selected:
+            mgr = us_profiles[us_profiles["Manager"] == selected].iloc[0]
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                vol = mgr["Vol. Brasil (USD)"]
+                st.metric("Volume Brasil", f"US$ {vol/1e6:.0f}M" if vol < 1e9 else f"US$ {vol/1e9:.1f}B")
+            with c2:
+                st.metric("% Corporativo", f"{mgr['% Corporativo']}%")
+            with c3:
+                st.metric("Posições", f"{mgr['Nº Posições BR']}")
+
+            # Holdings detail
+            us_holdings = load_us_holdings(DATA_DIR)
+            if not us_holdings.empty:
+                mgr_holdings = us_holdings[us_holdings["manager"] == selected].copy()
+                if not mgr_holdings.empty:
+                    mgr_holdings["Volume"] = mgr_holdings["val_usd"].apply(
+                        lambda x: f"US$ {x/1e6:.1f}M" if abs(x) >= 1e6 else f"US$ {x/1e3:.0f}K"
+                    )
+                    st.dataframe(
+                        mgr_holdings[["name", "title", "Volume", "asset_cat",
+                                      "isin", "maturity", "currency"]].rename(columns={
+                            "name": "Emissor", "title": "Título", "asset_cat": "Tipo",
+                            "isin": "ISIN", "maturity": "Vencimento", "currency": "Moeda",
+                        }),
+                        use_container_width=True, hide_index=True,
+                    )
+
+
+# ══════════════════════════════════════════
+# MERCADO US — Holdings Brasil
+# ══════════════════════════════════════════
+elif page == "Holdings Brasil":
+    st.markdown("""<div class="main-header">
+        <h1>📊 Holdings Brasil</h1>
+        <p>Todas as posições em ativos brasileiros detidas por fundos americanos</p>
+    </div>""", unsafe_allow_html=True)
+
+    us_holdings = load_us_holdings(DATA_DIR)
+
+    if us_holdings.empty:
+        st.info("Base US não carregada. Vá em **Visão Geral US** para baixar dados.")
+    else:
+        # Filters
+        col_f1, col_f2, col_f3 = st.columns(3)
+        with col_f1:
+            managers = ["Todos"] + sorted(us_holdings["manager"].unique().tolist())
+            sel_mgr = st.selectbox("Gestora", managers, key="us_hold_mgr")
+        with col_f2:
+            asset_cats = ["Todos"] + sorted(us_holdings["asset_cat"].dropna().unique().tolist())
+            sel_cat = st.selectbox("Tipo de Ativo", asset_cats, key="us_hold_cat")
+        with col_f3:
+            min_val = st.number_input("Volume mínimo (USD M)", value=0.0, step=1.0, key="us_hold_min")
+
+        filtered = us_holdings.copy()
+        if sel_mgr != "Todos":
+            filtered = filtered[filtered["manager"] == sel_mgr]
+        if sel_cat != "Todos":
+            filtered = filtered[filtered["asset_cat"] == sel_cat]
+        if min_val > 0:
+            filtered = filtered[filtered["val_usd"] >= min_val * 1e6]
+
+        st.caption(f"{len(filtered):,} posições | Volume: US$ {filtered['val_usd'].sum()/1e6:,.0f}M")
+
+        # Display
+        display = filtered.copy()
+        display["Volume USD"] = display["val_usd"].apply(
+            lambda x: f"US$ {x/1e6:.1f}M" if abs(x) >= 1e6 else f"US$ {x/1e3:.0f}K"
+        )
+        display["% Fundo"] = display["pct_val"].apply(lambda x: f"{x:.2f}%")
+
+        st.dataframe(
+            display[["manager", "fund_name", "name", "title", "Volume USD",
+                     "% Fundo", "asset_cat", "isin", "cusip", "maturity",
+                     "currency"]].rename(columns={
+                "manager": "Gestora", "fund_name": "Fundo", "name": "Emissor",
+                "title": "Título", "asset_cat": "Tipo", "isin": "ISIN",
+                "cusip": "CUSIP", "maturity": "Vencimento", "currency": "Moeda",
+            }),
+            use_container_width=True, hide_index=True, height=600,
+        )
+
+        # Top emitters chart
+        st.markdown("---")
+        st.subheader("Volume por Emissor")
+        top_emit = (
+            filtered.groupby("name")["val_usd"]
+            .sum()
+            .sort_values(ascending=False)
+            .head(20)
+            .reset_index()
+        )
+        top_emit.columns = ["Emissor", "Volume"]
+        top_emit["Emissor"] = top_emit["Emissor"].str[:40]
+
+        fig = px.bar(
+            top_emit, x="Volume", y="Emissor", orientation="h",
+            color_discrete_sequence=["#223040"],
+        )
+        fig.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            height=500, margin=dict(l=0, r=0, t=10, b=0),
+            yaxis=dict(autorange="reversed"),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        excel_btn(filtered, "zyn_us_holdings_brasil.xlsx", key="us_hold_export")
+
+
+# ══════════════════════════════════════════
+# MERCADO US — Matching US
+# ══════════════════════════════════════════
+elif page == "Matching US":
+    st.markdown("""<div class="main-header">
+        <h1>🎯 Matching US</h1>
+        <p>Cruze operações do Pipeline ZYN com investidores americanos</p>
+    </div>""", unsafe_allow_html=True)
+
+    us_profiles = load_us_profiles(DATA_DIR)
+    us_holdings = load_us_holdings(DATA_DIR)
+
+    if us_profiles.empty:
+        st.info("Base US não carregada. Vá em **Visão Geral US** para baixar dados.")
+    else:
+        # Deal input
+        st.subheader("Parâmetros da Operação")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            deal_issuer = st.text_input("Emissor / Devedor", "", key="us_match_issuer")
+        with col2:
+            deal_type = st.selectbox("Tipo", ["CRI", "CRA", "Debênture", "NC", "CPR-F"], key="us_match_type")
+        with col3:
+            deal_amount = st.number_input("Volume (US$ M)", value=10.0, step=1.0, key="us_match_amount")
+
+        # Pipeline integration
+        st.markdown("---")
+        st.subheader("Ou selecione do Pipeline")
+        try:
+            pipeline = pipeline_to_df()
+            if not pipeline.empty and "Nome" in pipeline.columns:
+                deal_options = ["(Manual)"] + pipeline["Nome"].dropna().tolist()
+                sel_deal = st.selectbox("Operação do Pipeline", deal_options, key="us_match_pipeline")
+                if sel_deal != "(Manual)":
+                    deal_row = pipeline[pipeline["Nome"] == sel_deal].iloc[0]
+                    deal_issuer = str(deal_row.get("Nome", ""))
+                    deal_type = str(deal_row.get("Produto", "Debênture"))
+                    vol = deal_row.get("Volume", 0)
+                    try:
+                        deal_amount = float(vol) / 5.0 / 1e6  # BRL to USD rough
+                    except (ValueError, TypeError):
+                        pass
+        except Exception:
+            pass
+
+        if st.button("🎯 Calcular Matching", type="primary", key="us_match_go"):
+            results = match_us_investors_to_deal(
+                us_profiles, us_holdings,
+                deal_type=deal_type,
+                deal_amount_usd=deal_amount * 1e6,
+                deal_issuer=deal_issuer,
+            )
+
+            if results.empty:
+                st.warning("Nenhum match encontrado.")
+            else:
+                st.success(f"✅ {len(results)} gestoras US ranqueadas")
+
+                # Format
+                display = results.copy()
+                display["Vol. Brasil"] = display["Vol. Brasil (USD)"].apply(
+                    lambda x: f"US$ {x/1e6:.0f}M" if x < 1e9 else f"US$ {x/1e9:.1f}B"
+                )
+                display["Score"] = display["Match Score"].apply(lambda x: f"{x:.0f}")
+
+                st.dataframe(
+                    display[["Manager", "Vol. Brasil", "% Corporativo",
+                             "Nº Posições BR", "Score", "Top Emissores BR"]],
+                    use_container_width=True, hide_index=True,
+                )
+
+                excel_btn(results, "zyn_matching_us.xlsx", key="us_match_export")
 
 
 # ══════════════════════════════════════════
