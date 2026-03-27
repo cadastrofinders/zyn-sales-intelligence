@@ -110,43 +110,69 @@ st.markdown(f"""
     section[data-testid="stSidebar"] * {{
         color: white !important;
     }}
-    section[data-testid="stSidebar"] .stMarkdown p,
-    section[data-testid="stSidebar"] .stMarkdown h1,
-    section[data-testid="stSidebar"] .stMarkdown h2,
-    section[data-testid="stSidebar"] .stMarkdown h3,
-    section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] span,
-    section[data-testid="stSidebar"] div,
-    section[data-testid="stSidebar"] .stMarkdown em {{
-        color: white !important;
-    }}
     section[data-testid="stSidebar"] hr {{
-        border-color: rgba(255,255,255,0.15);
+        border-color: rgba(255,255,255,0.1);
     }}
-    /* Radio nav items */
-    section[data-testid="stSidebar"] label[data-baseweb="radio"] {{
-        color: rgba(255,255,255,0.9) !important;
-        font-size: 0.9rem !important;
-        font-weight: 400 !important;
-        padding: 0.4rem 0.8rem !important;
+
+    /* Radio — hide the circle indicator */
+    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] > div:first-child {{
+        display: none !important;
+    }}
+
+    /* Radio — each nav item */
+    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] {{
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        padding: 0.38rem 0.9rem !important;
+        margin: 0 !important;
         border-radius: 6px;
-        transition: all 0.15s ease;
-        margin-bottom: 2px;
+        transition: background 0.15s ease;
+        cursor: pointer;
     }}
-    section[data-testid="stSidebar"] label[data-baseweb="radio"] p {{
-        color: rgba(255,255,255,0.9) !important;
-        font-size: 0.9rem !important;
+    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"]:hover {{
+        background: rgba(255,255,255,0.06) !important;
     }}
-    section[data-testid="stSidebar"] label[data-baseweb="radio"]:hover {{
-        background: rgba(255,255,255,0.08);
+
+    /* Radio — text inside items */
+    section[data-testid="stSidebar"] div[role="radiogroup"] label p,
+    section[data-testid="stSidebar"] div[role="radiogroup"] label span,
+    section[data-testid="stSidebar"] div[role="radiogroup"] label div {{
+        color: rgba(255,255,255,0.75) !important;
+        font-size: 0.84rem !important;
+        font-weight: 400 !important;
+        font-family: 'Montserrat', sans-serif !important;
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
     }}
-    section[data-testid="stSidebar"] label[data-baseweb="radio"]:hover p {{
+
+    /* Radio — selected/active item */
+    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"][aria-checked="true"] {{
+        background: rgba(46,125,79,0.15) !important;
+        border-left: 2px solid {GREEN};
+    }}
+    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"][aria-checked="true"] p,
+    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"][aria-checked="true"] span {{
         color: white !important;
+        font-weight: 500 !important;
     }}
-    /* Radio button circles */
-    section[data-testid="stSidebar"] div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {{
-        color: rgba(255,255,255,0.9) !important;
-        font-size: 0.9rem !important;
+
+    /* Radio — section headers (BRASIL, INTERNACIONAL, etc.) */
+    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"]:has(p) {{
+        pointer-events: auto;
+    }}
+
+    /* Streamlit overrides — kill all background blurs on sidebar elements */
+    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div {{
+        background: transparent !important;
+        backdrop-filter: none !important;
+    }}
+    section[data-testid="stSidebar"] [data-testid="stRadio"] {{
+        background: transparent !important;
+    }}
+    section[data-testid="stSidebar"] [data-testid="stRadio"] > div {{
+        background: transparent !important;
     }}
 
     /* === Page Header === */
@@ -410,18 +436,16 @@ st.markdown(f"""
     footer {{ visibility: hidden; }}
     #MainMenu {{ visibility: hidden; }}
 
-    /* === Sidebar nav items === */
-    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] {{
-        padding: 0.32rem 0.9rem !important;
-        margin-bottom: 0;
-        border-radius: 5px;
-    }}
-
-    /* === Section header items in radio (BRASIL, INTERNACIONAL, etc.) === */
-    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"]:has(p:is(
-        :where([class])
-    )) {{
-        cursor: default;
+    /* === Sidebar — remove any remaining Streamlit default backgrounds === */
+    section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"],
+    section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"] > div,
+    section[data-testid="stSidebar"] div[data-testid="element-container"],
+    section[data-testid="stSidebar"] div[data-testid="stElementToolbar"] {{
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        border: none !important;
+        box-shadow: none !important;
     }}
 
     /* === Sidebar link buttons === */
