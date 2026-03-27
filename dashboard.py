@@ -410,10 +410,52 @@ st.markdown(f"""
     footer {{ visibility: hidden; }}
     #MainMenu {{ visibility: hidden; }}
 
-    /* === Sidebar nav separators === */
+    /* === Sidebar nav items === */
     section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] {{
-        padding: 0.35rem 0.8rem !important;
-        margin-bottom: 1px;
+        padding: 0.32rem 0.9rem !important;
+        margin-bottom: 0;
+        border-radius: 5px;
+    }}
+
+    /* === Section header items in radio (BRASIL, INTERNACIONAL, etc.) === */
+    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"]:has(p:is(
+        :where([class])
+    )) {{
+        cursor: default;
+    }}
+
+    /* === Sidebar link buttons === */
+    section[data-testid="stSidebar"] .stLinkButton a {{
+        font-size: 0.78rem !important;
+        font-weight: 500 !important;
+        color: rgba(255,255,255,0.6) !important;
+        text-decoration: none !important;
+        border: 1px solid rgba(255,255,255,0.12) !important;
+        background: transparent !important;
+        border-radius: 6px !important;
+        transition: all 0.15s ease !important;
+    }}
+    section[data-testid="stSidebar"] .stLinkButton a:hover {{
+        color: white !important;
+        border-color: {GREEN} !important;
+        background: rgba(46,125,79,0.12) !important;
+    }}
+
+    /* === Sidebar footer === */
+    .sidebar-footer {{
+        font-size: 0.62rem;
+        color: rgba(255,255,255,0.25);
+        letter-spacing: 0.03em;
+        line-height: 1.5;
+        text-align: center;
+        padding-top: 0.3rem;
+    }}
+    .sidebar-footer a {{
+        color: rgba(255,255,255,0.35) !important;
+        text-decoration: none;
+    }}
+    .sidebar-footer a:hover {{
+        color: {GREEN} !important;
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -497,58 +539,60 @@ def share_buttons(title: str, body: str):
 
 # === SIDEBAR ===
 with st.sidebar:
+    # ── Brand ──
     st.markdown("""<div class="sidebar-brand">
-        <svg viewBox="0 0 220 100" xmlns="http://www.w3.org/2000/svg" style="width:160px;height:auto;">
+        <svg viewBox="0 0 220 100" xmlns="http://www.w3.org/2000/svg" style="width:140px;height:auto;">
             <text x="110" y="52" text-anchor="middle" fill="#FFFFFF" font-family="Montserrat,Helvetica,Arial,sans-serif" font-weight="700" font-size="52" letter-spacing="4">ZYN</text>
             <text x="110" y="78" text-anchor="middle" fill="rgba(255,255,255,0.45)" font-family="Montserrat,Helvetica,Arial,sans-serif" font-weight="400" font-size="20" letter-spacing="8">CAPITAL</text>
             <line x1="40" y1="86" x2="180" y2="86" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
             <text x="110" y="97" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-family="Montserrat,Helvetica,Arial,sans-serif" font-weight="400" font-size="8" letter-spacing="3">SALES INTELLIGENCE</text>
         </svg>
     </div>""", unsafe_allow_html=True)
-    st.markdown("---")
 
+    # ── Navigation ──
     ALL_PAGES = [
-        "📈  Painel Executivo",
-        "── Market Intel ────",
-        "📊  Visão Geral",
-        "🏢  Gestoras",
-        "📁  Fundos & Papéis",
-        "🏭  Emissores",
-        "👤  Devedores",
-        "💰  Fundos com Caixa",
-        "🔗  Matching",
-        "── Mercado US ──────",
-        "🇺🇸  Visão Geral US",
-        "🏦  Fund Managers",
-        "📊  Holdings Brasil",
-        "🎯  Matching US",
-        "── Gestão ──────",
-        "📋  Pipeline",
-        "🔄  Pipeline x Investidores",
-        "🎯  Oportunidades",
-        "🔔  Alertas",
-        "── Mercado ─────",
-        "💹  Cotações",
-        "── Config ──────",
-        "✏️  Base Manual",
-        "🔃  Atualizar",
+        "Painel Executivo",
+        "BRASIL",
+        "Visão Geral",
+        "Gestoras",
+        "Fundos & Papéis",
+        "Emissores",
+        "Devedores",
+        "Fundos com Caixa",
+        "Matching",
+        "INTERNACIONAL",
+        "Visão Geral US",
+        "Fund Managers",
+        "Holdings Brasil",
+        "Matching US",
+        "GESTÃO",
+        "Pipeline",
+        "Pipeline x Investidores",
+        "Oportunidades",
+        "Alertas",
+        "MERCADO",
+        "Cotações",
+        "CONFIG",
+        "Base Manual",
+        "Atualizar",
     ]
-    _SEPS = {"── Market Intel ────", "── Mercado US ──────", "── Gestão ──────", "── Mercado ─────", "── Config ──────"}
+    _SEPS = {"BRASIL", "INTERNACIONAL", "GESTÃO", "MERCADO", "CONFIG"}
 
     page_sel = st.radio(
         "Navegação",
         ALL_PAGES,
         label_visibility="collapsed",
         key="nav_radio",
+        format_func=lambda x: f"── {x} ──" if x in _SEPS else f"    {x}",
     )
 
-    # If user clicks a separator, keep previous page
     if page_sel in _SEPS:
         page = st.session_state.get("active_page", "Visão Geral")
     else:
-        # Strip emoji prefix to get clean page name
-        page = page_sel.split("  ", 1)[-1] if "  " in page_sel else page_sel
+        page = page_sel
         st.session_state.active_page = page
+
+    # ── Stats ──
     st.markdown("---")
     positions = load_positions()
     if not positions.empty:
@@ -557,14 +601,20 @@ with st.sidebar:
         fundos = positions['cnpj_fundo'].nunique()
         atualizado = datetime.fromtimestamp(cache_path.stat().st_mtime).strftime('%d/%m/%Y') if cache_path.exists() else "—"
         st.markdown(f"""<div class="sidebar-stats">
-            <strong>{len(positions):,}</strong> posições<br>
-            <strong>{gestoras}</strong> gestoras · <strong>{fundos:,}</strong> fundos<br>
+            <strong>{len(positions):,}</strong> posições · <strong>{gestoras}</strong> gestoras · <strong>{fundos:,}</strong> fundos<br>
             Atualizado: <strong>{atualizado}</strong>
         </div>""", unsafe_allow_html=True)
+
+    # ── External Links ──
     st.markdown("---")
-    st.link_button("🔗 Análise de Crédito", "https://zyn-credit-engine.streamlit.app/", use_container_width=True)
+    st.link_button("Análise de Crédito", "https://zyn-credit-engine.streamlit.app/", use_container_width=True)
+
+    # ── Footer ──
     st.markdown("---")
-    st.markdown("*ZYN Capital © 2026*")
+    st.markdown("""<div class="sidebar-footer">
+        ZYN Capital &copy; 2026<br>
+        Crédito Estruturado &middot; M&A
+    </div>""", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════
