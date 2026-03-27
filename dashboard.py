@@ -714,11 +714,11 @@ if page == "Painel Executivo":
         _board_cols = st.columns(len(_stages))
         for col, (label, count, value, color) in zip(_board_cols, _stages):
             _count_html = f'<div style="font-size:1.6rem;font-weight:700;color:{color};">{count}</div>' if count is not None else ''
-            _value_html = f'<div style="font-size:0.85rem;color:rgba(255,255,255,0.7);margin-top:0.15rem;">{value}</div>' if value else ''
+            _value_html = f'<div style="font-size:0.85rem;color:#223040;margin-top:0.15rem;">{value}</div>' if value else ''
             col.markdown(
                 f'<div style="text-align:center;padding:0.8rem 0.3rem;border-top:3px solid {color};'
-                f'background:rgba(255,255,255,0.03);border-radius:0 0 6px 6px;min-height:100px;">'
-                f'<div style="font-size:0.65rem;font-weight:600;letter-spacing:0.05em;color:rgba(255,255,255,0.45);'
+                f'background:#f8f9fb;border-radius:0 0 6px 6px;min-height:100px;">'
+                f'<div style="font-size:0.65rem;font-weight:600;letter-spacing:0.05em;color:#8B9197;'
                 f'text-transform:uppercase;margin-bottom:0.4rem;">{label}</div>'
                 f'{_count_html}{_value_html}'
                 f'</div>',
@@ -734,14 +734,14 @@ if page == "Painel Executivo":
         _conv_pipe = f"{_pipe_to_ts}/{_pipe_total_ativos} ({_pipe_to_ts*100/max(_pipe_total_ativos,1):.0f}%)" if _pipe_total_ativos else "—"
 
         cv1, cv2, cv3 = st.columns(3)
-        cv1.markdown(f'<div style="text-align:center;font-size:0.75rem;color:rgba(255,255,255,0.5);">'
-                     f'Lead → Pipeline: <strong style="color:white;">{_conv_leads} {_conv_pct}</strong></div>',
+        cv1.markdown(f'<div style="text-align:center;font-size:0.75rem;color:#8B9197;">'
+                     f'Lead → Pipeline: <strong style="color:#223040;">{_conv_leads} {_conv_pct}</strong></div>',
                      unsafe_allow_html=True)
-        cv2.markdown(f'<div style="text-align:center;font-size:0.75rem;color:rgba(255,255,255,0.5);">'
-                     f'Pipeline → TS: <strong style="color:white;">{_conv_pipe}</strong></div>',
+        cv2.markdown(f'<div style="text-align:center;font-size:0.75rem;color:#8B9197;">'
+                     f'Pipeline → TS: <strong style="color:#223040;">{_conv_pipe}</strong></div>',
                      unsafe_allow_html=True)
-        cv3.markdown(f'<div style="text-align:center;font-size:0.75rem;color:rgba(255,255,255,0.5);">'
-                     f'Receita Prevista → Recebida: <strong style="color:white;">'
+        cv3.markdown(f'<div style="text-align:center;font-size:0.75rem;color:#8B9197;">'
+                     f'Receita Prevista → Recebida: <strong style="color:#223040;">'
                      f'{_kpis["rec_recebida"]*100/max(_kpis["rec_prevista"],1):.0f}%</strong></div>',
                      unsafe_allow_html=True)
 
@@ -761,10 +761,10 @@ if page == "Painel Executivo":
                 _socio = str(d.get("Sócio", ""))
                 st.markdown(
                     f'<div style="padding:0.5rem 0.7rem;margin:0.25rem 0;border-left:3px solid {color};'
-                    f'background:rgba(255,255,255,0.03);border-radius:0 4px 4px 0;font-size:0.8rem;">'
-                    f'<strong>{_nome}</strong>'
+                    f'background:#f8f9fb;border-radius:0 4px 4px 0;font-size:0.8rem;">'
+                    f'<strong style="color:#223040;">{_nome}</strong>'
                     f'<span style="float:right;color:{color};font-weight:600;">{_val}</span><br>'
-                    f'<span style="color:rgba(255,255,255,0.4);font-size:0.7rem;">{_tipo} · {_socio}</span>'
+                    f'<span style="color:#8B9197;font-size:0.7rem;">{_tipo} · {_socio}</span>'
                     f'</div>',
                     unsafe_allow_html=True,
                 )
