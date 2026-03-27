@@ -719,31 +719,51 @@ if page == "Painel Executivo":
         _v_ops = sum(o.get("valor_operacao", 0) or 0 for o in _ops)
         _fee_contratado = sum(o.get("fee_total", 0) or 0 for o in _ops)
 
+        # GCB breakdown — Operações
+        _ops_gcb = [o for o in _ops if "GCB" in (o.get("investidor", "") or "").upper()]
+        _n_ops_gcb = len(_ops_gcb)
+        _v_ops_gcb = sum(o.get("valor_operacao", 0) or 0 for o in _ops_gcb)
+        _fee_gcb = sum(o.get("fee_total", 0) or 0 for o in _ops_gcb)
+
+        # GCB breakdown — TS Enviado (deals com GCB em "Analisando")
+        _ts_env_gcb = _ts_enviado[_ts_enviado["Analisando"].apply(
+            lambda x: "GCB" in (x if isinstance(x, list) else [])
+        )] if not _ts_enviado.empty and "Analisando" in _ts_enviado.columns else pd.DataFrame()
+        _n_ts_gcb = len(_ts_env_gcb)
+        _v_ts_gcb = _ts_env_gcb["Valor"].sum() if not _ts_env_gcb.empty else 0
+
         # Receita prevista = Fee Total dos TS enviados (estimativa 2% do valor)
         _fee_ts_env = _v_ts_env * 0.02 if _v_ts_env else 0
+        _fee_ts_gcb = _v_ts_gcb * 0.02 if _v_ts_gcb else 0
 
         # Funnel stages
         _stages = [
-            ("Leads", _leads_ativos, None, "#607D8B"),
-            ("Em Análise", _n_analise, fmt_br(_v_analise), "#1E88E5"),
-            ("TS Enviado", _n_ts_env, fmt_br(_v_ts_env), "#FB8C00"),
-            ("Operações", _n_ops, fmt_br(_v_ops), GREEN),
-            ("Rec. Prevista", None, fmt_br(_fee_ts_env), "#7B1FA2"),
-            ("Rec. Contratada", None, fmt_br(_fee_contratado), "#00897B"),
-            ("Rec. Recebida", None, fmt_br(_kpis["rec_recebida"]), GREEN),
+            ("Leads", _leads_ativos, None, None, "#607D8B"),
+            ("Em Análise", _n_analise, fmt_br(_v_analise), None, "#1E88E5"),
+            ("TS Enviado", _n_ts_env, fmt_br(_v_ts_env), None, "#FB8C00"),
+            ("Operações", _n_ops, fmt_br(_v_ops),
+             f"GCB: {_n_ops_gcb} ops · {fmt_br(_v_ops_gcb)}" if _n_ops_gcb else None, GREEN),
+            ("Rec. Prevista", None, fmt_br(_fee_ts_env),
+             f"GCB: {fmt_br(_fee_ts_gcb)}" if _fee_ts_gcb else None, "#7B1FA2"),
+            ("Rec. Contratada", None, fmt_br(_fee_contratado),
+             f"GCB: {fmt_br(_fee_gcb)}" if _fee_gcb else None, "#00897B"),
+            ("Rec. Recebida", None, fmt_br(_kpis["rec_recebida"]), None, GREEN),
         ]
 
         # Render board as columns
         _board_cols = st.columns(len(_stages))
-        for col, (label, count, value, color) in zip(_board_cols, _stages):
+        for col, (label, count, value, gcb_detail, color) in zip(_board_cols, _stages):
             _count_html = f'<div style="font-size:1.6rem;font-weight:700;color:{color};">{count}</div>' if count is not None else ''
             _value_html = f'<div style="font-size:0.85rem;color:#223040;margin-top:0.15rem;">{value}</div>' if value else ''
+            _gcb_html = (f'<div style="font-size:0.65rem;color:#D4AF37;font-weight:600;margin-top:0.3rem;'
+                         f'border-top:1px solid rgba(212,175,55,0.2);padding-top:0.25rem;">{gcb_detail}</div>'
+                         if gcb_detail else '')
             col.markdown(
                 f'<div style="text-align:center;padding:0.8rem 0.3rem;border-top:3px solid {color};'
                 f'background:#f8f9fb;border-radius:0 0 6px 6px;min-height:100px;">'
                 f'<div style="font-size:0.65rem;font-weight:600;letter-spacing:0.05em;color:#8B9197;'
                 f'text-transform:uppercase;margin-bottom:0.4rem;">{label}</div>'
-                f'{_count_html}{_value_html}'
+                f'{_count_html}{_value_html}{_gcb_html}'
                 f'</div>',
                 unsafe_allow_html=True,
             )
@@ -782,10 +802,17 @@ if page == "Painel Executivo":
                 _val = fmt_br(d["Valor"]) if pd.notna(d.get("Valor")) and d.get("Valor") else "—"
                 _tipo = str(d.get("Tipo", ""))
                 _socio = str(d.get("Sócio", ""))
+                _analisando = d.get("Analisando", [])
+                _is_gcb = "GCB" in (_analisando if isinstance(_analisando, list) else [])
+                _gcb_badge = (' <span style="background:#D4AF37;color:white;font-size:0.55rem;'
+                              'padding:1px 5px;border-radius:3px;font-weight:700;vertical-align:middle;">GCB</span>'
+                              if _is_gcb else '')
+                _border_color = "#D4AF37" if _is_gcb else color
+                _bg = "rgba(212,175,55,0.06)" if _is_gcb else "#f8f9fb"
                 st.markdown(
-                    f'<div style="padding:0.5rem 0.7rem;margin:0.25rem 0;border-left:3px solid {color};'
-                    f'background:#f8f9fb;border-radius:0 4px 4px 0;font-size:0.8rem;">'
-                    f'<strong style="color:#223040;">{_nome}</strong>'
+                    f'<div style="padding:0.5rem 0.7rem;margin:0.25rem 0;border-left:3px solid {_border_color};'
+                    f'background:{_bg};border-radius:0 4px 4px 0;font-size:0.8rem;">'
+                    f'<strong style="color:#223040;">{_nome}</strong>{_gcb_badge}'
                     f'<span style="float:right;color:{color};font-weight:600;">{_val}</span><br>'
                     f'<span style="color:#8B9197;font-size:0.7rem;">{_tipo} · {_socio}</span>'
                     f'</div>',
@@ -802,10 +829,16 @@ if page == "Painel Executivo":
                     _val = fmt_br(op["valor_operacao"]) if op.get("valor_operacao") else "—"
                     _fee = fmt_br(op["fee_total"]) if op.get("fee_total") else "—"
                     _st_op = op.get("status_operacao", "")
+                    _is_gcb_op = "GCB" in (op.get("investidor", "") or "").upper()
+                    _gcb_badge_op = (' <span style="background:#D4AF37;color:white;font-size:0.55rem;'
+                                     'padding:1px 5px;border-radius:3px;font-weight:700;vertical-align:middle;">GCB</span>'
+                                     if _is_gcb_op else '')
+                    _border_op = "#D4AF37" if _is_gcb_op else GREEN
+                    _bg_op = "rgba(212,175,55,0.06)" if _is_gcb_op else "#f8f9fb"
                     st.markdown(
-                        f'<div style="padding:0.5rem 0.7rem;margin:0.25rem 0;border-left:3px solid {GREEN};'
-                        f'background:#f8f9fb;border-radius:0 4px 4px 0;font-size:0.8rem;">'
-                        f'<strong style="color:#223040;">{_nome}</strong>'
+                        f'<div style="padding:0.5rem 0.7rem;margin:0.25rem 0;border-left:3px solid {_border_op};'
+                        f'background:{_bg_op};border-radius:0 4px 4px 0;font-size:0.8rem;">'
+                        f'<strong style="color:#223040;">{_nome}</strong>{_gcb_badge_op}'
                         f'<span style="float:right;color:{GREEN};font-weight:600;">{_val}</span><br>'
                         f'<span style="color:#8B9197;font-size:0.7rem;">{_st_op} · Fee: {_fee}</span>'
                         f'</div>',
