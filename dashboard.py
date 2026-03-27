@@ -114,65 +114,40 @@ st.markdown(f"""
         border-color: rgba(255,255,255,0.1);
     }}
 
-    /* Radio — hide the circle indicator */
-    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] > div:first-child {{
-        display: none !important;
-    }}
-
-    /* Radio — each nav item */
-    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] {{
+    /* === Sidebar nav buttons === */
+    section[data-testid="stSidebar"] .stButton > button {{
         background: transparent !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-        padding: 0.38rem 0.9rem !important;
-        margin: 0 !important;
-        border-radius: 6px;
-        transition: background 0.15s ease;
-        cursor: pointer;
-    }}
-    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"]:hover {{
-        background: rgba(255,255,255,0.06) !important;
-    }}
-
-    /* Radio — text inside items */
-    section[data-testid="stSidebar"] div[role="radiogroup"] label p,
-    section[data-testid="stSidebar"] div[role="radiogroup"] label span,
-    section[data-testid="stSidebar"] div[role="radiogroup"] label div {{
-        color: rgba(255,255,255,0.75) !important;
-        font-size: 0.84rem !important;
+        color: rgba(255,255,255,0.7) !important;
+        border: none !important;
+        text-align: left !important;
+        justify-content: flex-start !important;
+        font-size: 0.82rem !important;
         font-weight: 400 !important;
-        font-family: 'Montserrat', sans-serif !important;
-        background: transparent !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
+        padding: 0.35rem 0.8rem !important;
+        margin: 0 !important;
+        border-radius: 5px !important;
+        box-shadow: none !important;
+        transition: all 0.12s ease !important;
     }}
-
-    /* Radio — selected/active item */
-    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"][aria-checked="true"] {{
+    section[data-testid="stSidebar"] .stButton > button:hover {{
+        background: rgba(255,255,255,0.06) !important;
+        color: white !important;
+    }}
+    /* Active nav button (primary type) */
+    section[data-testid="stSidebar"] .stButton > button[kind="primary"] {{
         background: rgba(46,125,79,0.15) !important;
-        border-left: 2px solid {GREEN};
-    }}
-    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"][aria-checked="true"] p,
-    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"][aria-checked="true"] span {{
         color: white !important;
         font-weight: 500 !important;
+        border-left: 2px solid {GREEN} !important;
+        border-radius: 0 5px 5px 0 !important;
     }}
-
-    /* Radio — section headers (BRASIL, INTERNACIONAL, etc.) */
-    section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"]:has(p) {{
-        pointer-events: auto;
+    /* Remove Streamlit element gaps in sidebar */
+    section[data-testid="stSidebar"] .stElementContainer {{
+        margin: 0 !important;
+        padding: 0 !important;
     }}
-
-    /* Streamlit overrides — kill all background blurs on sidebar elements */
-    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div {{
-        background: transparent !important;
-        backdrop-filter: none !important;
-    }}
-    section[data-testid="stSidebar"] [data-testid="stRadio"] {{
-        background: transparent !important;
-    }}
-    section[data-testid="stSidebar"] [data-testid="stRadio"] > div {{
-        background: transparent !important;
+    section[data-testid="stSidebar"] .stVerticalBlock {{
+        gap: 0 !important;
     }}
 
     /* === Page Header === */
@@ -436,14 +411,11 @@ st.markdown(f"""
     footer {{ visibility: hidden; }}
     #MainMenu {{ visibility: hidden; }}
 
-    /* === Sidebar — remove any remaining Streamlit default backgrounds === */
+    /* === Sidebar — kill all Streamlit default backgrounds === */
     section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"],
     section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"] > div,
-    section[data-testid="stSidebar"] div[data-testid="element-container"],
-    section[data-testid="stSidebar"] div[data-testid="stElementToolbar"] {{
+    section[data-testid="stSidebar"] div[data-testid="element-container"] {{
         background: transparent !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
         border: none !important;
         box-shadow: none !important;
     }}
@@ -574,47 +546,36 @@ with st.sidebar:
     </div>""", unsafe_allow_html=True)
 
     # ── Navigation ──
-    ALL_PAGES = [
-        "Painel Executivo",
-        "BRASIL",
-        "Visão Geral",
-        "Gestoras",
-        "Fundos & Papéis",
-        "Emissores",
-        "Devedores",
-        "Fundos com Caixa",
-        "Matching",
-        "INTERNACIONAL",
-        "Visão Geral US",
-        "Fund Managers",
-        "Holdings Brasil",
-        "Matching US",
-        "GESTÃO",
-        "Pipeline",
-        "Pipeline x Investidores",
-        "Oportunidades",
-        "Alertas",
-        "MERCADO",
-        "Cotações",
-        "CONFIG",
-        "Base Manual",
-        "Atualizar",
-    ]
-    _SEPS = {"BRASIL", "INTERNACIONAL", "GESTÃO", "MERCADO", "CONFIG"}
+    _SECTIONS = {
+        "BRASIL": ["Visão Geral", "Gestoras", "Fundos & Papéis", "Emissores",
+                    "Devedores", "Fundos com Caixa", "Matching"],
+        "INTERNACIONAL": ["Visão Geral US", "Fund Managers", "Holdings Brasil", "Matching US"],
+        "GESTÃO": ["Pipeline", "Pipeline x Investidores", "Oportunidades", "Alertas"],
+        "MERCADO": ["Cotações"],
+        "CONFIG": ["Base Manual", "Atualizar"],
+    }
 
-    page_sel = st.radio(
-        "Navegação",
-        ALL_PAGES,
-        label_visibility="collapsed",
-        key="nav_radio",
-        format_func=lambda x: f"── {x} ──" if x in _SEPS else f"    {x}",
-    )
+    # Painel Executivo — standalone at top
+    if st.button("Painel Executivo", key="nav_painel", use_container_width=True,
+                  type="primary" if st.session_state.get("active_page") == "Painel Executivo" else "secondary"):
+        st.session_state.active_page = "Painel Executivo"
+        st.rerun()
 
-    if page_sel in _SEPS:
-        page = st.session_state.get("active_page", "Visão Geral")
-    else:
-        page = page_sel
-        st.session_state.active_page = page
+    for section, items in _SECTIONS.items():
+        st.markdown(f'<p style="font-size:0.6rem;font-weight:600;letter-spacing:0.12em;'
+                    f'color:rgba(255,255,255,0.3);margin:1rem 0 0.3rem 0;padding:0;">'
+                    f'{section}</p>', unsafe_allow_html=True)
+        for item in items:
+            active = st.session_state.get("active_page") == item
+            if st.button(
+                item, key=f"nav_{item}",
+                use_container_width=True,
+                type="primary" if active else "secondary",
+            ):
+                st.session_state.active_page = item
+                st.rerun()
+
+    page = st.session_state.get("active_page", "Painel Executivo")
 
     # ── Stats ──
     st.markdown("---")
