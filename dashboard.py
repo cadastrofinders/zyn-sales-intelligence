@@ -683,7 +683,117 @@ if page == "Painel Executivo":
         r7.markdown(f'<div class="metric-card"><div class="metric-value">{_kpis["runway_meses"]:.1f} meses</div><div class="metric-label">Runway</div></div>', unsafe_allow_html=True)
         r8.markdown(f'<div class="metric-card"><div class="metric-value">{_kpis["leads_ativos"]}</div><div class="metric-label">Leads Ativos</div></div>', unsafe_allow_html=True)
 
-        # Receita pipeline: realizada + confirmada + prevista
+        # ── Deal Flow Board ──
+        st.markdown("---")
+        st.markdown("### Deal Flow")
+
+        # Calculate stage counts and values
+        _leads_ativos = _kpis["leads_ativos"]
+        _leads_convertidos = _kpis["leads_convertidos"]
+        _n_frio = len(_ativos[_ativos["Status"] == "Frio"]) if not _ativos.empty else 0
+        _n_morno = len(_ativos[_ativos["Status"] == "Morno"]) if not _ativos.empty else 0
+        _n_quente = len(_ativos[_ativos["Status"] == "Quente"]) if not _ativos.empty else 0
+        _n_ts = len(_ativos[_ativos["Status"] == "TS Assinado - enviado Operações"]) if not _ativos.empty else 0
+        _v_frio = _ativos[_ativos["Status"] == "Frio"]["Valor"].sum() if not _ativos.empty else 0
+        _v_morno = _ativos[_ativos["Status"] == "Morno"]["Valor"].sum() if not _ativos.empty else 0
+        _v_quente = _ativos[_ativos["Status"] == "Quente"]["Valor"].sum() if not _ativos.empty else 0
+        _v_ts = _ativos[_ativos["Status"] == "TS Assinado - enviado Operações"]["Valor"].sum() if not _ativos.empty else 0
+
+        # Funnel stages
+        _stages = [
+            ("Leads", _leads_ativos, None, "#607D8B"),
+            ("Pipeline", _n_frio + _n_morno, fmt_br(_v_frio + _v_morno), "#1E88E5"),
+            ("TS Enviado", _n_quente, fmt_br(_v_quente), "#FB8C00"),
+            ("TS Assinado", _n_ts, fmt_br(_v_ts), GREEN),
+            ("Rec. Prevista", None, fmt_br(_kpis["rec_prevista"]), "#7B1FA2"),
+            ("Rec. Confirmada", None, fmt_br(_kpis["rec_confirmada"]), "#00897B"),
+            ("Rec. Recebida", None, fmt_br(_kpis["rec_recebida"]), GREEN),
+        ]
+
+        # Render board as columns
+        _board_cols = st.columns(len(_stages))
+        for col, (label, count, value, color) in zip(_board_cols, _stages):
+            _count_html = f'<div style="font-size:1.6rem;font-weight:700;color:{color};">{count}</div>' if count is not None else ''
+            _value_html = f'<div style="font-size:0.85rem;color:rgba(255,255,255,0.7);margin-top:0.15rem;">{value}</div>' if value else ''
+            col.markdown(
+                f'<div style="text-align:center;padding:0.8rem 0.3rem;border-top:3px solid {color};'
+                f'background:rgba(255,255,255,0.03);border-radius:0 0 6px 6px;min-height:100px;">'
+                f'<div style="font-size:0.65rem;font-weight:600;letter-spacing:0.05em;color:rgba(255,255,255,0.45);'
+                f'text-transform:uppercase;margin-bottom:0.4rem;">{label}</div>'
+                f'{_count_html}{_value_html}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # Conversion rates
+        st.markdown("<br>", unsafe_allow_html=True)
+        _conv_leads = f"{_leads_convertidos}/{_kpis['leads_total']}" if _kpis.get("leads_total") else "—"
+        _conv_pct = f"({_leads_convertidos*100/_kpis['leads_total']:.0f}%)" if _kpis.get("leads_total") and _kpis["leads_total"] > 0 else ""
+        _pipe_to_ts = _n_quente + _n_ts
+        _pipe_total_ativos = len(_ativos) if not _ativos.empty else 0
+        _conv_pipe = f"{_pipe_to_ts}/{_pipe_total_ativos} ({_pipe_to_ts*100/max(_pipe_total_ativos,1):.0f}%)" if _pipe_total_ativos else "—"
+
+        cv1, cv2, cv3 = st.columns(3)
+        cv1.markdown(f'<div style="text-align:center;font-size:0.75rem;color:rgba(255,255,255,0.5);">'
+                     f'Lead → Pipeline: <strong style="color:white;">{_conv_leads} {_conv_pct}</strong></div>',
+                     unsafe_allow_html=True)
+        cv2.markdown(f'<div style="text-align:center;font-size:0.75rem;color:rgba(255,255,255,0.5);">'
+                     f'Pipeline → TS: <strong style="color:white;">{_conv_pipe}</strong></div>',
+                     unsafe_allow_html=True)
+        cv3.markdown(f'<div style="text-align:center;font-size:0.75rem;color:rgba(255,255,255,0.5);">'
+                     f'Receita Prevista → Recebida: <strong style="color:white;">'
+                     f'{_kpis["rec_recebida"]*100/max(_kpis["rec_prevista"],1):.0f}%</strong></div>',
+                     unsafe_allow_html=True)
+
+        # ── Deals by stage detail ──
+        st.markdown("---")
+        st.markdown("### Deals por Estágio")
+
+        def _render_deal_cards(title, df_filtered, color):
+            """Render deal cards for a stage."""
+            if df_filtered.empty:
+                st.caption(f"Nenhum deal em {title}")
+                return
+            for _, d in df_filtered.iterrows():
+                _nome = str(d.get("Cliente", "")).strip()[:30]
+                _val = fmt_br(d["Valor"]) if pd.notna(d.get("Valor")) and d.get("Valor") else "—"
+                _tipo = str(d.get("Tipo", ""))
+                _socio = str(d.get("Sócio", ""))
+                st.markdown(
+                    f'<div style="padding:0.5rem 0.7rem;margin:0.25rem 0;border-left:3px solid {color};'
+                    f'background:rgba(255,255,255,0.03);border-radius:0 4px 4px 0;font-size:0.8rem;">'
+                    f'<strong>{_nome}</strong>'
+                    f'<span style="float:right;color:{color};font-weight:600;">{_val}</span><br>'
+                    f'<span style="color:rgba(255,255,255,0.4);font-size:0.7rem;">{_tipo} · {_socio}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+        if not _ativos.empty:
+            _st_ts = _ativos[_ativos["Status"] == "TS Assinado - enviado Operações"]
+            _st_quente = _ativos[_ativos["Status"] == "Quente"]
+            _st_morno = _ativos[_ativos["Status"] == "Morno"]
+            _st_frio = _ativos[_ativos["Status"] == "Frio"]
+
+            dc1, dc2, dc3, dc4 = st.columns(4)
+            with dc1:
+                st.markdown(f'<p style="font-size:0.7rem;font-weight:600;color:{GREEN};text-transform:uppercase;'
+                            f'letter-spacing:0.08em;">TS Assinado ({len(_st_ts)})</p>', unsafe_allow_html=True)
+                _render_deal_cards("TS Assinado", _st_ts, GREEN)
+            with dc2:
+                st.markdown(f'<p style="font-size:0.7rem;font-weight:600;color:#FB8C00;text-transform:uppercase;'
+                            f'letter-spacing:0.08em;">TS Enviado / Quente ({len(_st_quente)})</p>', unsafe_allow_html=True)
+                _render_deal_cards("Quente", _st_quente, "#FB8C00")
+            with dc3:
+                st.markdown(f'<p style="font-size:0.7rem;font-weight:600;color:#1E88E5;text-transform:uppercase;'
+                            f'letter-spacing:0.08em;">Morno ({len(_st_morno)})</p>', unsafe_allow_html=True)
+                _render_deal_cards("Morno", _st_morno, "#1E88E5")
+            with dc4:
+                st.markdown(f'<p style="font-size:0.7rem;font-weight:600;color:#607D8B;text-transform:uppercase;'
+                            f'letter-spacing:0.08em;">Frio ({len(_st_frio)})</p>', unsafe_allow_html=True)
+                _render_deal_cards("Frio", _st_frio, "#607D8B")
+
+        # ── Funil de Receita ──
         st.markdown("---")
         st.markdown("### Funil de Receita 2026")
         funil_data = pd.DataFrame([
