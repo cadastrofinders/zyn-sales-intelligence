@@ -5,6 +5,7 @@ Drill-down completo: Gestora → Fundo → Papel → Emissor → Devedor
 Design minimalista com identidade visual ZYN Capital
 """
 import sys
+import json
 from pathlib import Path
 from io import BytesIO
 
@@ -700,25 +701,35 @@ if page == "Painel Executivo":
 
         _em_analise = _has_fase(_ativos, "Em Analise")
         _ts_enviado = _has_fase(_ativos, "TS enviado ao cliente")
-        _ts_assinado = _has_fase(_ativos, "TS Assinado")
         _on_hold = _has_fase(_ativos, "On Hold")
 
         _n_analise = len(_em_analise)
         _n_ts_env = len(_ts_enviado)
-        _n_ts_ass = len(_ts_assinado)
         _n_hold = len(_on_hold)
         _v_analise = _em_analise["Valor"].sum() if not _em_analise.empty else 0
         _v_ts_env = _ts_enviado["Valor"].sum() if not _ts_enviado.empty else 0
-        _v_ts_ass = _ts_assinado["Valor"].sum() if not _ts_assinado.empty else 0
+
+        # Operações (from data/operacoes.json)
+        _ops_file = DATA_DIR / "operacoes.json"
+        _ops = []
+        if _ops_file.exists():
+            with open(_ops_file, "r", encoding="utf-8") as _f:
+                _ops = json.load(_f).get("operacoes", [])
+        _n_ops = len(_ops)
+        _v_ops = sum(o.get("valor_operacao", 0) or 0 for o in _ops)
+        _fee_contratado = sum(o.get("fee_total", 0) or 0 for o in _ops)
+
+        # Receita prevista = Fee Total dos TS enviados (estimativa 2% do valor)
+        _fee_ts_env = _v_ts_env * 0.02 if _v_ts_env else 0
 
         # Funnel stages
         _stages = [
             ("Leads", _leads_ativos, None, "#607D8B"),
             ("Em Análise", _n_analise, fmt_br(_v_analise), "#1E88E5"),
             ("TS Enviado", _n_ts_env, fmt_br(_v_ts_env), "#FB8C00"),
-            ("TS Assinado", _n_ts_ass, fmt_br(_v_ts_ass), GREEN),
-            ("Rec. Prevista", None, fmt_br(_kpis["rec_prevista"]), "#7B1FA2"),
-            ("Rec. Confirmada", None, fmt_br(_kpis["rec_confirmada"]), "#00897B"),
+            ("Operações", _n_ops, fmt_br(_v_ops), GREEN),
+            ("Rec. Prevista", None, fmt_br(_fee_ts_env), "#7B1FA2"),
+            ("Rec. Contratada", None, fmt_br(_fee_contratado), "#00897B"),
             ("Rec. Recebida", None, fmt_br(_kpis["rec_recebida"]), GREEN),
         ]
 
@@ -741,20 +752,20 @@ if page == "Painel Executivo":
         st.markdown("<br>", unsafe_allow_html=True)
         _conv_leads = f"{_leads_convertidos}/{_kpis['leads_total']}" if _kpis.get("leads_total") else "—"
         _conv_pct = f"({_leads_convertidos*100/_kpis['leads_total']:.0f}%)" if _kpis.get("leads_total") and _kpis["leads_total"] > 0 else ""
-        _pipe_to_ts = _n_ts_env + _n_ts_ass
+        _pipe_to_ts = _n_ts_env + _n_ops
         _pipe_total_ativos = len(_ativos) if not _ativos.empty else 0
         _conv_pipe = f"{_pipe_to_ts}/{_pipe_total_ativos} ({_pipe_to_ts*100/max(_pipe_total_ativos,1):.0f}%)" if _pipe_total_ativos else "—"
+        _conv_rec = f"{_kpis['rec_recebida']*100/max(_fee_contratado,1):.0f}%" if _fee_contratado else "—"
 
         cv1, cv2, cv3 = st.columns(3)
         cv1.markdown(f'<div style="text-align:center;font-size:0.75rem;color:#8B9197;">'
                      f'Lead → Pipeline: <strong style="color:#223040;">{_conv_leads} {_conv_pct}</strong></div>',
                      unsafe_allow_html=True)
         cv2.markdown(f'<div style="text-align:center;font-size:0.75rem;color:#8B9197;">'
-                     f'Pipeline → TS: <strong style="color:#223040;">{_conv_pipe}</strong></div>',
+                     f'Pipeline → TS/Op: <strong style="color:#223040;">{_conv_pipe}</strong></div>',
                      unsafe_allow_html=True)
         cv3.markdown(f'<div style="text-align:center;font-size:0.75rem;color:#8B9197;">'
-                     f'Receita Prevista → Recebida: <strong style="color:#223040;">'
-                     f'{_kpis["rec_recebida"]*100/max(_kpis["rec_prevista"],1):.0f}%</strong></div>',
+                     f'Contratada → Recebida: <strong style="color:#223040;">{_conv_rec}</strong></div>',
                      unsafe_allow_html=True)
 
         # ── Deals by stage detail ──
@@ -781,12 +792,25 @@ if page == "Painel Executivo":
                     unsafe_allow_html=True,
                 )
 
-        if not _ativos.empty:
+        if not _ativos.empty or _ops:
             dc1, dc2, dc3, dc4 = st.columns(4)
             with dc1:
                 st.markdown(f'<p style="font-size:0.7rem;font-weight:600;color:{GREEN};text-transform:uppercase;'
-                            f'letter-spacing:0.08em;">TS Assinado ({_n_ts_ass})</p>', unsafe_allow_html=True)
-                _render_deal_cards("TS Assinado", _ts_assinado, GREEN)
+                            f'letter-spacing:0.08em;">Operações ({_n_ops})</p>', unsafe_allow_html=True)
+                for op in _ops:
+                    _nome = (op.get("operacao") or op.get("cliente", ""))[:30]
+                    _val = fmt_br(op["valor_operacao"]) if op.get("valor_operacao") else "—"
+                    _fee = fmt_br(op["fee_total"]) if op.get("fee_total") else "—"
+                    _st_op = op.get("status_operacao", "")
+                    st.markdown(
+                        f'<div style="padding:0.5rem 0.7rem;margin:0.25rem 0;border-left:3px solid {GREEN};'
+                        f'background:#f8f9fb;border-radius:0 4px 4px 0;font-size:0.8rem;">'
+                        f'<strong style="color:#223040;">{_nome}</strong>'
+                        f'<span style="float:right;color:{GREEN};font-weight:600;">{_val}</span><br>'
+                        f'<span style="color:#8B9197;font-size:0.7rem;">{_st_op} · Fee: {_fee}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
             with dc2:
                 st.markdown(f'<p style="font-size:0.7rem;font-weight:600;color:#FB8C00;text-transform:uppercase;'
                             f'letter-spacing:0.08em;">TS Enviado ({_n_ts_env})</p>', unsafe_allow_html=True)

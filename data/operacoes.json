@@ -1,0 +1,93 @@
+{
+  "sync_date": "2026-03-27",
+  "source": "Notion Operações",
+  "operacoes": [
+    {
+      "id": "2f68e4de-57c8-8026-8844-eaa4f8a2046e",
+      "operacao": "Antecipaçao ",
+      "cliente": "Luis Augusto",
+      "status_operacao": "Concluída",
+      "tipo_operacao": "Nota Comercial",
+      "valor_operacao": 5000000,
+      "fee_total": 147000,
+      "fee_zyn": 102900,
+      "socio": "",
+      "investidor": "GCB",
+      "instituicao_lead": "",
+      "data_closing": null,
+      "data_liquidacao": "2026-01-28",
+      "fase": [],
+      "notion_url": "https://www.notion.so/2f68e4de57c880268844eaa4f8a2046e"
+    },
+    {
+      "id": "2f68e4de-57c8-8097-93b3-f9d1f112b18b",
+      "operacao": "CPR -F ",
+      "cliente": "Roça Agro",
+      "status_operacao": "Em Diligência",
+      "tipo_operacao": "CPR-F",
+      "valor_operacao": 10000000,
+      "fee_total": 250000,
+      "fee_zyn": 125000,
+      "socio": "",
+      "investidor": "GCB",
+      "instituicao_lead": "",
+      "data_closing": null,
+      "data_liquidacao": "2026-04-14",
+      "fase": [],
+      "notion_url": "https://www.notion.so/2f68e4de57c8809793b3f9d1f112b18b"
+    },
+    {
+      "id": "3038e4de-57c8-8008-aba0-ff3ea1a18362",
+      "operacao": "CRI",
+      "cliente": "Jozair Ltda",
+      "status_operacao": "Em Diligência",
+      "tipo_operacao": "CRI",
+      "valor_operacao": 10200000,
+      "fee_total": 306000,
+      "fee_zyn": 198900,
+      "socio": "",
+      "investidor": "INCO",
+      "instituicao_lead": "",
+      "data_closing": "2026-03-10",
+      "data_liquidacao": null,
+      "fase": [],
+      "notion_url": "https://www.notion.so/3038e4de57c88008aba0ff3ea1a18362"
+    },
+    {
+      "id": "3038e4de-57c8-8050-ac66-f209921b59dc",
+      "operacao": "",
+      "cliente": "RCS Tecnologia",
+      "status_operacao": "Em Diligência",
+      "tipo_operacao": "Nota Comercial",
+      "valor_operacao": 6000000,
+      "fee_total": 180000,
+      "fee_zyn": 90000,
+      "socio": "",
+      "investidor": "GCB",
+      "instituicao_lead": "",
+      "data_closing": null,
+      "data_liquidacao": "2026-03-25",
+      "fase": [],
+      "notion_url": "https://www.notion.so/3038e4de57c88050ac66f209921b59dc"
+    },
+    {
+      "id": "30c8e4de-57c8-8062-8f8f-f689cbfcd406",
+      "operacao": "H2A Bioenergia",
+      "cliente": "H2A Bioernegia",
+      "status_operacao": "Em Diligência",
+      "tipo_operacao": "CRA",
+      "valor_operacao": 42000000,
+      "fee_total": 1050000,
+      "fee_zyn": 525000,
+      "socio": "Danilo",
+      "investidor": "INCO",
+      "instituicao_lead": "",
+      "data_closing": null,
+      "data_liquidacao": null,
+      "fase": [
+        "TS enviado ao cliente"
+      ],
+      "notion_url": "https://www.notion.so/30c8e4de57c880628f8ff689cbfcd406"
+    }
+  ]
+}

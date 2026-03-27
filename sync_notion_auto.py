@@ -21,6 +21,8 @@ import requests
 DATA_DIR = Path(__file__).resolve().parent / "data"
 PIPELINE_FILE = DATA_DIR / "pipeline.json"
 PIPELINE_DB_ID = "2f68e4de-57c8-81f3-bcaa-cc73f28fd5d5"
+OPERACOES_DB_ID = "2f68e4de-57c8-8124-a5b9-fb9ef857fd03"
+OPERACOES_FILE = DATA_DIR / "operacoes.json"
 NOTION_API = "https://api.notion.com/v1"
 NOTION_VERSION = "2022-06-28"
 
@@ -171,6 +173,99 @@ def _rich_text(prop) -> str:
     return ""
 
 
+def query_operacoes_db(token: str) -> list[dict]:
+    """Busca todas as operações do DB Operações via Notion API."""
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Notion-Version": NOTION_VERSION,
+        "Content-Type": "application/json",
+    }
+    all_results = []
+    has_more = True
+    start_cursor = None
+    while has_more:
+        body = {"page_size": 100}
+        if start_cursor:
+            body["start_cursor"] = start_cursor
+        resp = requests.post(
+            f"{NOTION_API}/databases/{OPERACOES_DB_ID}/query",
+            headers=headers, json=body, timeout=30,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        all_results.extend(data.get("results", []))
+        has_more = data.get("has_more", False)
+        start_cursor = data.get("next_cursor")
+    return all_results
+
+
+def _formula_number(prop):
+    """Extract number from a formula property."""
+    if not isinstance(prop, dict):
+        return None
+    if prop.get("type") == "formula":
+        formula = prop.get("formula", {})
+        if formula.get("type") == "number":
+            return formula.get("number")
+    return None
+
+
+def parse_operacao(page: dict) -> dict | None:
+    """Converte uma página Operações para dict."""
+    try:
+        props = page.get("properties", {})
+        page_id = page.get("id", "")
+        op = {
+            "id": page_id,
+            "operacao": _title(props.get("Operação", {})),
+            "cliente": _rich_text(props.get("Cliente", {})),
+            "status_operacao": _select(props.get("Status da Operação", {})),
+            "tipo_operacao": _select(props.get("Tipo de Operação", {})),
+            "valor_operacao": _number(props.get("Valor Operação", {})),
+            "fee_total": _number(props.get("Fee Total", {})),
+            "fee_zyn": _formula_number(props.get("Fee Zyn", {})),
+            "socio": _select(props.get("Sócio Responsável Pipe", {})),
+            "investidor": _rich_text(props.get("Investidor", {})),
+            "instituicao_lead": _select(props.get("Instituição Lead", {})),
+            "data_closing": _date(props.get("Data Closing", {})),
+            "data_liquidacao": _date(props.get("Data Liquidação", {})),
+            "fase": _multi_select(props.get("Fase", {})),
+            "notion_url": f"https://www.notion.so/{page_id.replace('-', '')}",
+        }
+        return op
+    except Exception as e:
+        print(f"  Erro parsing operação: {e}", file=sys.stderr)
+        return None
+
+
+def sync_operacoes(token: str):
+    """Sync Operações database."""
+    print(f"\n🔄 Buscando Operações (DB: {OPERACOES_DB_ID[:8]}...)")
+    pages = query_operacoes_db(token)
+    print(f"   {len(pages)} operações encontradas")
+
+    ops = []
+    for page in pages:
+        op = parse_operacao(page)
+        if op:
+            ops.append(op)
+            val = f"R$ {op['valor_operacao']/1e6:.1f}M" if op.get("valor_operacao") else "—"
+            fee = f"Fee: R$ {op['fee_total']:,.0f}" if op.get("fee_total") else "—"
+            print(f"   ✅ {op['operacao'] or op['cliente']:30s} | {op['status_operacao']:15s} | {val} | {fee}")
+
+    payload = {
+        "sync_date": datetime.now().strftime("%Y-%m-%d"),
+        "source": "Notion Operações",
+        "operacoes": ops,
+    }
+    OPERACOES_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(OPERACOES_FILE, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+
+    print(f"✅ Operações: {len(ops)} salvas em {OPERACOES_FILE}")
+    return ops
+
+
 def main():
     token = get_notion_token()
     if not token:
@@ -181,6 +276,7 @@ def main():
         print("  - Arquivo .env na raiz do projeto", file=sys.stderr)
         sys.exit(1)
 
+    # Pipeline
     print(f"🔄 Buscando deals do Pipeline (DB: {PIPELINE_DB_ID[:8]}...)")
     pages = query_pipeline_db(token)
     print(f"   {len(pages)} páginas encontradas")
@@ -194,7 +290,6 @@ def main():
             val = f"R$ {deal['valor']/1e6:.1f}M" if deal.get("valor") else "—"
             print(f"   {status_icon} {deal['cliente']:30s} | {deal['status']:20s} | {val}")
 
-    # Salva
     payload = {
         "sync_date": datetime.now().strftime("%Y-%m-%d"),
         "source": "Notion Pipeline em Andamento",
@@ -208,6 +303,9 @@ def main():
     declinados = len(deals) - ativos
     print(f"\n✅ Pipeline atualizado: {len(deals)} deals ({ativos} ativos, {declinados} declinados)")
     print(f"   Arquivo: {PIPELINE_FILE}")
+
+    # Operações
+    sync_operacoes(token)
 
 
 if __name__ == "__main__":
