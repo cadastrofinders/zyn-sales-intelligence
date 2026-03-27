@@ -741,9 +741,13 @@ if page == "Painel Executivo":
         _fee_ts_env = _v_ts_env * 0.02 if _v_ts_env else 0
         _fee_ts_gcb = _v_ts_gcb * 0.02 if _v_ts_gcb else 0
 
+        # Total analisado (Leads + Pipeline inteiro)
+        _total_analisado = _kpis["leads_total"] + len(_pipe)
+
         # Funnel stages
         _stages = [
-            ("Leads", _leads_ativos, None, None, "#607D8B"),
+            ("Analisado", _total_analisado, f"Leads: {_kpis['leads_total']} · Pipe: {len(_pipe)}", None, "#455A64"),
+            ("Leads Ativos", _leads_ativos, None, None, "#607D8B"),
             ("Em Análise", _n_analise, fmt_br(_v_analise), None, "#1E88E5"),
             ("TS Enviado", _n_ts_env, fmt_br(_v_ts_env),
              f"GCB: {_n_ts_gcb} deals · {fmt_br(_v_ts_gcb)}" if _n_ts_gcb else None, "#FB8C00"),
