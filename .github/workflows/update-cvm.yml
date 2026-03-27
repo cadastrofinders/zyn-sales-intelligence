@@ -1,0 +1,49 @@
+name: Update CVM Data
+
+on:
+  schedule:
+    # Dias 1 e 15 de cada mês às 12:00 UTC (9:00 BRT)
+    - cron: '0 12 1,15 * *'
+  workflow_dispatch: # Permite executar manualmente
+
+jobs:
+  update-cvm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run CVM ingestion (3 months)
+        run: python main.py --months 3 --export-notion
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+
+      - name: Resolve devedores CRI/CRA
+        run: |
+          python src/resolve_devedores.py --resolve
+          python src/resolve_devedores.py --enrich
+
+      - name: Commit and push updated data
+        run: |
+          git config user.name "ZYN Bot"
+          git config user.email "bot@zyncapital.com.br"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Atualização automática CVM — $(date '+%d/%m/%Y')"
+            git push
+          fi
