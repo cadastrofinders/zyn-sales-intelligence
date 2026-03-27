@@ -1,0 +1,40 @@
+name: Relatório de Gestão Semanal
+
+on:
+  schedule:
+    # Segunda-feira às 12:30 UTC (9:30 BRT)
+    - cron: '30 12 * * 1'
+  workflow_dispatch: # Permite executar manualmente
+
+jobs:
+  relatorio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Sales Intelligence (skip download, use cached data)
+        run: python main.py --skip-download --export-notion
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+
+      - name: Resolve devedores
+        run: |
+          python src/resolve_devedores.py --resolve
+          python src/resolve_devedores.py --enrich
+
+      - name: Generate weekly report via Notion API
+        run: python src/generate_weekly_report.py
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
