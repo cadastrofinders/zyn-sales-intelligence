@@ -1,12 +1,14 @@
 {
-  "sync_date": "2026-03-25",
+  "sync_date": "2026-03-27",
   "source": "Notion Pipeline em Andamento",
   "deals": [
     {
       "id": "2f68e4de-57c8-80a4-bbd3-cbae26c31dee",
       "cliente": "Grupo Salas",
-      "status": "Quente",
-      "fase": [],
+      "status": "Morno",
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "CRI",
       "instrumento": "",
       "valor": 61200000,
@@ -29,7 +31,9 @@
       "id": "3038e4de-57c8-8002-86b7-c4695dcf7236",
       "cliente": "Jozair - Pró Soluto",
       "status": "TS Assinado - enviado Operações",
-      "fase": [],
+      "fase": [
+        "TS Assinado"
+      ],
       "tipo_operacao": "CRI",
       "instrumento": "",
       "valor": null,
@@ -49,7 +53,9 @@
       "id": "3038e4de-57c8-8002-b94f-c56a3e5cb16a",
       "cliente": "Fibra Cotton",
       "status": "Declinado",
-      "fase": [],
+      "fase": [
+        "Declinado"
+      ],
       "tipo_operacao": "FIDC",
       "instrumento": "",
       "valor": null,
@@ -67,7 +73,9 @@
       "id": "3038e4de-57c8-8057-a86f-daa022d989fb",
       "cliente": "Grupo Melozzi",
       "status": "Declinado",
-      "fase": [],
+      "fase": [
+        "Declinado"
+      ],
       "tipo_operacao": "Agro",
       "instrumento": "",
       "valor": null,
@@ -83,7 +91,9 @@
       "id": "3038e4de-57c8-806e-a5c3-e8ddf3c84dc0",
       "cliente": "Agroplanta",
       "status": "Morno",
-      "fase": [],
+      "fase": [
+        "TS enviado ao cliente"
+      ],
       "tipo_operacao": "Special Sits",
       "instrumento": "",
       "valor": 50000000,
@@ -103,7 +113,9 @@
       "id": "3038e4de-57c8-807d-bd27-fe02c9894257",
       "cliente": "DC Grupo Simões",
       "status": "Declinado",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "Legal Claim",
       "instrumento": "",
       "valor": null,
@@ -119,7 +131,9 @@
       "id": "3038e4de-57c8-808b-a09d-e4cb8a5efbed",
       "cliente": "Flor do Cerrado",
       "status": "Morno",
-      "fase": [],
+      "fase": [
+        "On Hold"
+      ],
       "tipo_operacao": "CRI",
       "instrumento": "",
       "valor": 10000000,
@@ -140,7 +154,9 @@
       "id": "3038e4de-57c8-80a8-a4e0-fec093010da1",
       "cliente": "Grupo Goulart",
       "status": "Declinado",
-      "fase": [],
+      "fase": [
+        "Declinado"
+      ],
       "tipo_operacao": "Agro",
       "instrumento": "",
       "valor": null,
@@ -158,7 +174,9 @@
       "id": "3038e4de-57c8-80b8-92ca-c864d60c6694",
       "cliente": "Grupo Salas",
       "status": "Quente",
-      "fase": [],
+      "fase": [
+        "TS enviado ao cliente"
+      ],
       "tipo_operacao": "",
       "instrumento": "",
       "valor": 14000000,
@@ -178,7 +196,9 @@
       "id": "3038e4de-57c8-80e0-802b-f3c465af0bef",
       "cliente": "Agropecuaria OB",
       "status": "Declinado",
-      "fase": [],
+      "fase": [
+        "Declinado"
+      ],
       "tipo_operacao": "Agro",
       "instrumento": "",
       "valor": null,
@@ -196,7 +216,9 @@
       "id": "3038e4de-57c8-80e6-9f88-cf1ab9dfcf42",
       "cliente": "Reserva da Fazenda",
       "status": "Declinado",
-      "fase": [],
+      "fase": [
+        "Declinado"
+      ],
       "tipo_operacao": "CRI",
       "instrumento": "",
       "valor": null,
@@ -212,7 +234,9 @@
       "id": "3038e4de-57c8-80f9-948a-f2398c8b06aa",
       "cliente": "Grupo Zanoni",
       "status": "Declinado",
-      "fase": [],
+      "fase": [
+        "Declinado"
+      ],
       "tipo_operacao": "Agro",
       "instrumento": "",
       "valor": null,
@@ -227,8 +251,10 @@
     {
       "id": "3038e4de-57c8-80ff-bb69-ed44a9a8733f",
       "cliente": "Gran Art",
-      "status": "Morno",
-      "fase": [],
+      "status": "Frio",
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "CRI",
       "instrumento": "",
       "valor": 29500000,
@@ -248,7 +274,9 @@
       "id": "3048e4de-57c8-805a-84ee-e0bcbadc9c76",
       "cliente": "Roça Agropecuaria",
       "status": "Quente",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "Agro",
       "instrumento": "",
       "valor": 20000000,
@@ -271,7 +299,10 @@
       "id": "3068e4de-57c8-800b-86ce-edf0795b9052",
       "cliente": "Umã Inc.",
       "status": "Quente",
-      "fase": [],
+      "fase": [
+        "Em Analise",
+        "TS enviado ao cliente"
+      ],
       "tipo_operacao": "CRI",
       "instrumento": "",
       "valor": 35000000,
@@ -295,7 +326,9 @@
       "id": "3068e4de-57c8-80ab-aa07-e62935dcad40",
       "cliente": "Grupo Salas",
       "status": "Quente",
-      "fase": [],
+      "fase": [
+        "TS enviado ao cliente"
+      ],
       "tipo_operacao": "CRI",
       "instrumento": "",
       "valor": 40500000,
@@ -315,7 +348,9 @@
       "id": "30a8e4de-57c8-8011-92e5-f4dd1b9c83a9",
       "cliente": "RCS Tecnologia",
       "status": "TS Assinado - enviado Operações",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "Crédito Bancário",
       "instrumento": "",
       "valor": null,
@@ -337,10 +372,12 @@
       "id": "30a8e4de-57c8-8013-a12f-c3009ef6bb2b",
       "cliente": "Caprem",
       "status": "Morno",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "DCM",
       "instrumento": "",
-      "valor": 30000000,
+      "valor": 10000000,
       "socio": "Luiz",
       "originador": "XPPJ - Danilo Almeida",
       "analisando": [
@@ -356,7 +393,9 @@
       "id": "30a8e4de-57c8-8057-a6ca-d77e162bf41b",
       "cliente": "Frysk",
       "status": "Declinado",
-      "fase": [],
+      "fase": [
+        "Declinado"
+      ],
       "tipo_operacao": "Crédito Bancário",
       "instrumento": "",
       "valor": null,
@@ -373,8 +412,10 @@
     {
       "id": "30a8e4de-57c8-8058-b8e7-c3c32575efb6",
       "cliente": "Monte Carlo",
-      "status": "Quente",
-      "fase": [],
+      "status": "Frio",
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "FIDC",
       "instrumento": "",
       "valor": 30000000,
@@ -392,7 +433,9 @@
       "id": "30a8e4de-57c8-805a-90d6-f7a86b6d6464",
       "cliente": "Sudati",
       "status": "Morno",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "Crédito Bancário",
       "instrumento": "",
       "valor": 30000000,
@@ -413,7 +456,9 @@
       "id": "30a8e4de-57c8-8080-aa71-d07d2a0ab02b",
       "cliente": "Monte Carlo",
       "status": "Quente",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "Crédito Bancário",
       "instrumento": "",
       "valor": 20000000,
@@ -432,17 +477,20 @@
       "id": "30a8e4de-57c8-8092-9128-cdcc98a0cb25",
       "cliente": "Macromaq",
       "status": "Morno",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "DCM",
       "instrumento": "",
-      "valor": 30000000,
+      "valor": 70000000,
       "socio": "Luiz",
       "originador": "ZYN - Luiz",
       "analisando": [
-        "GCB",
-        "Jive",
         "Augme",
-        "Verde"
+        "Verde",
+        "Patria",
+        "Valora",
+        "kinea"
       ],
       "exclusividade": [],
       "envio_investidores": "2026-02-24",
@@ -453,7 +501,10 @@
       "id": "30a8e4de-57c8-809c-8211-ccf3164014d3",
       "cliente": "Grupo IZVQ",
       "status": "Quente",
-      "fase": [],
+      "fase": [
+        "Em Analise",
+        "TS enviado ao cliente"
+      ],
       "tipo_operacao": "DCM",
       "instrumento": "",
       "valor": 15000000,
@@ -471,7 +522,9 @@
       "id": "30a8e4de-57c8-80a8-93aa-cb89f49e041f",
       "cliente": "Perplan",
       "status": "Declinado",
-      "fase": [],
+      "fase": [
+        "Declinado"
+      ],
       "tipo_operacao": "Contrato Compra e Venda",
       "instrumento": "",
       "valor": null,
@@ -487,7 +540,9 @@
       "id": "30a8e4de-57c8-80af-a788-f2ce8a0684ce",
       "cliente": "Conexão Sistema de Proteses",
       "status": "Declinado",
-      "fase": [],
+      "fase": [
+        "Declinado"
+      ],
       "tipo_operacao": "Crédito Bancário",
       "instrumento": "",
       "valor": null,
@@ -503,7 +558,9 @@
       "id": "30a8e4de-57c8-80cb-aa4f-cb4d52768ef6",
       "cliente": "Embraed",
       "status": "Morno",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "CRI",
       "instrumento": "",
       "valor": 71000000,
@@ -524,7 +581,9 @@
       "id": "30b8e4de-57c8-806d-a626-d4d773c0d50d",
       "cliente": "Magic - Orlando",
       "status": "Frio",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "Contrato Compra e Venda",
       "instrumento": "",
       "valor": 50000000,
@@ -542,7 +601,9 @@
       "id": "30b8e4de-57c8-80dd-9fb8-ee08d146a3f9",
       "cliente": "Splice",
       "status": "Frio",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "Legal Claim",
       "instrumento": "",
       "valor": 9000000,
@@ -561,7 +622,9 @@
       "id": "30c8e4de-57c8-8052-959f-c9b45c6b4e7c",
       "cliente": "Agrion ",
       "status": "Declinado",
-      "fase": [],
+      "fase": [
+        "Declinado"
+      ],
       "tipo_operacao": "Antecipação de duplicata",
       "instrumento": "",
       "valor": null,
@@ -577,7 +640,9 @@
       "id": "30c8e4de-57c8-808e-a1a4-c71f071a501c",
       "cliente": "PDG/IX",
       "status": "Frio",
-      "fase": [],
+      "fase": [
+        "On Hold"
+      ],
       "tipo_operacao": "NPL",
       "instrumento": "",
       "valor": null,
@@ -593,7 +658,9 @@
       "id": "30c8e4de-57c8-80aa-88d8-de153fb48ad8",
       "cliente": "Claudio Peças",
       "status": "Quente",
-      "fase": [],
+      "fase": [
+        "TS enviado ao cliente"
+      ],
       "tipo_operacao": "DCM",
       "instrumento": "",
       "valor": 22000000,
@@ -613,7 +680,9 @@
       "id": "3118e4de-57c8-8086-ad4a-f02e599a88ea",
       "cliente": "Verderio",
       "status": "Declinado",
-      "fase": [],
+      "fase": [
+        "Declinado"
+      ],
       "tipo_operacao": "Crédito Bancário",
       "instrumento": "",
       "valor": null,
@@ -631,7 +700,9 @@
       "id": "3128e4de-57c8-8092-b8bc-d0c5212b2419",
       "cliente": "Grupo Rodrigues ",
       "status": "Quente",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "Agro",
       "instrumento": "",
       "valor": 25000000,
@@ -651,7 +722,9 @@
       "id": "3138e4de-57c8-8083-a34c-c023c9471017",
       "cliente": "Grupo Giongo",
       "status": "Quente",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "Agro",
       "instrumento": "",
       "valor": 200000000,
@@ -674,11 +747,13 @@
     {
       "id": "3148e4de-57c8-80bf-8449-dc37129ea1c8",
       "cliente": "Toledo Ferrari",
-      "status": "Quente",
-      "fase": [],
+      "status": "Declinado",
+      "fase": [
+        "Declinado"
+      ],
       "tipo_operacao": "Equity",
       "instrumento": "",
-      "valor": 24000000,
+      "valor": null,
       "socio": "Renato",
       "originador": "ZYN - Renato",
       "analisando": [
@@ -692,8 +767,10 @@
     {
       "id": "3208e4de-57c8-808f-883e-d37edc1521ab",
       "cliente": "Grupo Saul Francisco",
-      "status": "Quente",
-      "fase": [],
+      "status": "Morno",
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "Agro",
       "instrumento": "",
       "valor": 50000000,
@@ -714,16 +791,16 @@
       "id": "3258e4de-57c8-80bd-a355-ca3ba5090e67",
       "cliente": "New Inc.",
       "status": "Quente",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "CCB",
       "instrumento": "",
       "valor": 66000000,
       "socio": "Renato",
       "originador": "Zyn - Renato",
       "analisando": [
-        "GCB",
-        "BS2",
-        "Fegik"
+        "BS2"
       ],
       "exclusividade": [
         "Não"
@@ -736,7 +813,9 @@
       "id": "3258e4de-57c8-80ca-a959-d67185aea44b",
       "cliente": "Grupo União - Gran Laguna",
       "status": "Quente",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "Contrato Compra e Venda",
       "instrumento": "",
       "valor": 20000000,
@@ -756,7 +835,9 @@
       "id": "3268e4de-57c8-8084-a472-de00352b0216",
       "cliente": "Net&Co",
       "status": "Quente",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "Antecipação de duplicata",
       "instrumento": "",
       "valor": 10000000,
@@ -774,7 +855,9 @@
       "id": "3298e4de-57c8-802d-9613-ce3022ce6ceb",
       "cliente": "Grupo União -  Baron 55",
       "status": "Quente",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "CRI",
       "instrumento": "",
       "valor": 40000000,
@@ -799,7 +882,9 @@
       "id": "3298e4de-57c8-8042-9c72-e6a2ad3a2848",
       "cliente": "Dahma Encalso",
       "status": "Frio",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "CRI",
       "instrumento": "",
       "valor": 25000000,
@@ -815,7 +900,9 @@
       "id": "3298e4de-57c8-8054-8038-e629ea328167",
       "cliente": "Dwell - New Horizon",
       "status": "Morno",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "CRI",
       "instrumento": "",
       "valor": 14000000,
@@ -830,11 +917,13 @@
     {
       "id": "3298e4de-57c8-806a-afc8-cc02d6582cb8",
       "cliente": "Paclog",
-      "status": "Morno",
-      "fase": [],
+      "status": "Quente",
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "DCM",
       "instrumento": "",
-      "valor": 20000000,
+      "valor": 15000000,
       "socio": "Luiz",
       "originador": "Zyn - Luiz",
       "analisando": [],
@@ -847,7 +936,9 @@
       "id": "32c8e4de-57c8-8096-9a57-c81ff4105dce",
       "cliente": "Petrotorque",
       "status": "Quente",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "Crédito Bancário",
       "instrumento": "",
       "valor": 150000000,
@@ -865,7 +956,9 @@
       "id": "32c8e4de-57c8-80a3-b316-e433d0bc93fd",
       "cliente": "Grupo Barco - Cota FIDC",
       "status": "Quente",
-      "fase": [],
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "Cota FIDC",
       "instrumento": "",
       "valor": 35000000,
@@ -885,8 +978,10 @@
     {
       "id": "32c8e4de-57c8-80c2-899c-fad78bf758a0",
       "cliente": "Grupo Ivanoff",
-      "status": "Quente",
-      "fase": [],
+      "status": "Frio",
+      "fase": [
+        "Em Analise"
+      ],
       "tipo_operacao": "Agro",
       "instrumento": "",
       "valor": 76000000,

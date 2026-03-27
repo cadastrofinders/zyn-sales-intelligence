@@ -64,7 +64,7 @@ def pipeline_to_df() -> pd.DataFrame:
         rows.append({
             "Cliente": d.get("cliente", "").strip(),
             "Status": d.get("status", ""),
-            "Fase": ", ".join(d.get("fase", [])),
+            "Fase": d.get("fase", "") if isinstance(d.get("fase"), str) else ", ".join(d.get("fase", [])),
             "Tipo": d.get("tipo_operacao", ""),
             "Instrumento": d.get("instrumento", ""),
             "Valor": d.get("valor"),

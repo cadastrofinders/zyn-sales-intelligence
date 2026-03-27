@@ -94,7 +94,7 @@ def parse_deal(page: dict) -> dict | None:
             "id": page_id,
             "cliente": _title(props.get("Cliente") or props.get("Name", {})),
             "status": _select(props.get("Status", {})),
-            "fase": _multi_select(props.get("Fase Detalhada", {})),
+            "fase": _multi_select(props.get("Fase", {})),
             "tipo_operacao": _select(props.get("Produto", {})) or _select(props.get("Tipo de Operação", {})),
             "instrumento": _select(props.get("Instrumento", {})),
             "valor": _number(props.get("Valor (R$)", {})) or _number(props.get("Valor", {})),

@@ -687,24 +687,36 @@ if page == "Painel Executivo":
         st.markdown("---")
         st.markdown("### Deal Flow")
 
-        # Calculate stage counts and values
+        # Calculate stage counts and values using Fase field
         _leads_ativos = _kpis["leads_ativos"]
         _leads_convertidos = _kpis["leads_convertidos"]
-        _n_frio = len(_ativos[_ativos["Status"] == "Frio"]) if not _ativos.empty else 0
-        _n_morno = len(_ativos[_ativos["Status"] == "Morno"]) if not _ativos.empty else 0
-        _n_quente = len(_ativos[_ativos["Status"] == "Quente"]) if not _ativos.empty else 0
-        _n_ts = len(_ativos[_ativos["Status"] == "TS Assinado - enviado Operações"]) if not _ativos.empty else 0
-        _v_frio = _ativos[_ativos["Status"] == "Frio"]["Valor"].sum() if not _ativos.empty else 0
-        _v_morno = _ativos[_ativos["Status"] == "Morno"]["Valor"].sum() if not _ativos.empty else 0
-        _v_quente = _ativos[_ativos["Status"] == "Quente"]["Valor"].sum() if not _ativos.empty else 0
-        _v_ts = _ativos[_ativos["Status"] == "TS Assinado - enviado Operações"]["Valor"].sum() if not _ativos.empty else 0
+
+        # Fase-based counts (from Notion "Fase" multi_select)
+        def _has_fase(df, fase):
+            """Check if deal Fase contains the given value."""
+            if df.empty or "Fase" not in df.columns:
+                return df.head(0)
+            return df[df["Fase"].str.contains(fase, case=False, na=False)]
+
+        _em_analise = _has_fase(_ativos, "Em Analise")
+        _ts_enviado = _has_fase(_ativos, "TS enviado ao cliente")
+        _ts_assinado = _has_fase(_ativos, "TS Assinado")
+        _on_hold = _has_fase(_ativos, "On Hold")
+
+        _n_analise = len(_em_analise)
+        _n_ts_env = len(_ts_enviado)
+        _n_ts_ass = len(_ts_assinado)
+        _n_hold = len(_on_hold)
+        _v_analise = _em_analise["Valor"].sum() if not _em_analise.empty else 0
+        _v_ts_env = _ts_enviado["Valor"].sum() if not _ts_enviado.empty else 0
+        _v_ts_ass = _ts_assinado["Valor"].sum() if not _ts_assinado.empty else 0
 
         # Funnel stages
         _stages = [
             ("Leads", _leads_ativos, None, "#607D8B"),
-            ("Pipeline", _n_frio + _n_morno, fmt_br(_v_frio + _v_morno), "#1E88E5"),
-            ("TS Enviado", _n_quente, fmt_br(_v_quente), "#FB8C00"),
-            ("TS Assinado", _n_ts, fmt_br(_v_ts), GREEN),
+            ("Em Análise", _n_analise, fmt_br(_v_analise), "#1E88E5"),
+            ("TS Enviado", _n_ts_env, fmt_br(_v_ts_env), "#FB8C00"),
+            ("TS Assinado", _n_ts_ass, fmt_br(_v_ts_ass), GREEN),
             ("Rec. Prevista", None, fmt_br(_kpis["rec_prevista"]), "#7B1FA2"),
             ("Rec. Confirmada", None, fmt_br(_kpis["rec_confirmada"]), "#00897B"),
             ("Rec. Recebida", None, fmt_br(_kpis["rec_recebida"]), GREEN),
@@ -729,7 +741,7 @@ if page == "Painel Executivo":
         st.markdown("<br>", unsafe_allow_html=True)
         _conv_leads = f"{_leads_convertidos}/{_kpis['leads_total']}" if _kpis.get("leads_total") else "—"
         _conv_pct = f"({_leads_convertidos*100/_kpis['leads_total']:.0f}%)" if _kpis.get("leads_total") and _kpis["leads_total"] > 0 else ""
-        _pipe_to_ts = _n_quente + _n_ts
+        _pipe_to_ts = _n_ts_env + _n_ts_ass
         _pipe_total_ativos = len(_ativos) if not _ativos.empty else 0
         _conv_pipe = f"{_pipe_to_ts}/{_pipe_total_ativos} ({_pipe_to_ts*100/max(_pipe_total_ativos,1):.0f}%)" if _pipe_total_ativos else "—"
 
@@ -770,28 +782,23 @@ if page == "Painel Executivo":
                 )
 
         if not _ativos.empty:
-            _st_ts = _ativos[_ativos["Status"] == "TS Assinado - enviado Operações"]
-            _st_quente = _ativos[_ativos["Status"] == "Quente"]
-            _st_morno = _ativos[_ativos["Status"] == "Morno"]
-            _st_frio = _ativos[_ativos["Status"] == "Frio"]
-
             dc1, dc2, dc3, dc4 = st.columns(4)
             with dc1:
                 st.markdown(f'<p style="font-size:0.7rem;font-weight:600;color:{GREEN};text-transform:uppercase;'
-                            f'letter-spacing:0.08em;">TS Assinado ({len(_st_ts)})</p>', unsafe_allow_html=True)
-                _render_deal_cards("TS Assinado", _st_ts, GREEN)
+                            f'letter-spacing:0.08em;">TS Assinado ({_n_ts_ass})</p>', unsafe_allow_html=True)
+                _render_deal_cards("TS Assinado", _ts_assinado, GREEN)
             with dc2:
                 st.markdown(f'<p style="font-size:0.7rem;font-weight:600;color:#FB8C00;text-transform:uppercase;'
-                            f'letter-spacing:0.08em;">TS Enviado / Quente ({len(_st_quente)})</p>', unsafe_allow_html=True)
-                _render_deal_cards("Quente", _st_quente, "#FB8C00")
+                            f'letter-spacing:0.08em;">TS Enviado ({_n_ts_env})</p>', unsafe_allow_html=True)
+                _render_deal_cards("TS Enviado", _ts_enviado, "#FB8C00")
             with dc3:
                 st.markdown(f'<p style="font-size:0.7rem;font-weight:600;color:#1E88E5;text-transform:uppercase;'
-                            f'letter-spacing:0.08em;">Morno ({len(_st_morno)})</p>', unsafe_allow_html=True)
-                _render_deal_cards("Morno", _st_morno, "#1E88E5")
+                            f'letter-spacing:0.08em;">Em Análise ({_n_analise})</p>', unsafe_allow_html=True)
+                _render_deal_cards("Em Análise", _em_analise, "#1E88E5")
             with dc4:
                 st.markdown(f'<p style="font-size:0.7rem;font-weight:600;color:#607D8B;text-transform:uppercase;'
-                            f'letter-spacing:0.08em;">Frio ({len(_st_frio)})</p>', unsafe_allow_html=True)
-                _render_deal_cards("Frio", _st_frio, "#607D8B")
+                            f'letter-spacing:0.08em;">On Hold ({_n_hold})</p>', unsafe_allow_html=True)
+                _render_deal_cards("On Hold", _on_hold, "#607D8B")
 
         # ── Funil de Receita ──
         st.markdown("---")
