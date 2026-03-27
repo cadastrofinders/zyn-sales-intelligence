@@ -703,6 +703,11 @@ if page == "Painel Executivo":
         _ts_enviado = _has_fase(_ativos, "TS enviado ao cliente")
         _on_hold = _has_fase(_ativos, "On Hold")
 
+        # Declinados (Leads + Pipeline)
+        _leads_decl = len(_leads[_leads["status"] == "Declinado"]) if not _leads.empty and "status" in _leads.columns else 0
+        _pipe_decl = _pipe[_pipe["Status"] == "Declinado"] if not _pipe.empty else pd.DataFrame()
+        _n_decl = _leads_decl + len(_pipe_decl)
+
         _n_analise = len(_em_analise)
         _n_ts_env = len(_ts_enviado)
         _n_hold = len(_on_hold)
@@ -749,6 +754,7 @@ if page == "Painel Executivo":
             ("Rec. Contratada", None, fmt_br(_fee_contratado),
              f"GCB: {fmt_br(_fee_gcb)}" if _fee_gcb else None, "#00897B"),
             ("Rec. Recebida", None, fmt_br(_kpis["rec_recebida"]), None, GREEN),
+            ("Declinado", _n_decl, f"Leads: {_leads_decl} · Pipe: {len(_pipe_decl)}", None, "#E53935"),
         ]
 
         # Render board as columns
