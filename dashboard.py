@@ -740,7 +740,8 @@ if page == "Painel Executivo":
         _stages = [
             ("Leads", _leads_ativos, None, None, "#607D8B"),
             ("Em Análise", _n_analise, fmt_br(_v_analise), None, "#1E88E5"),
-            ("TS Enviado", _n_ts_env, fmt_br(_v_ts_env), None, "#FB8C00"),
+            ("TS Enviado", _n_ts_env, fmt_br(_v_ts_env),
+             f"GCB: {_n_ts_gcb} deals · {fmt_br(_v_ts_gcb)}" if _n_ts_gcb else None, "#FB8C00"),
             ("Operações", _n_ops, fmt_br(_v_ops),
              f"GCB: {_n_ops_gcb} ops · {fmt_br(_v_ops_gcb)}" if _n_ops_gcb else None, GREEN),
             ("Rec. Prevista", None, fmt_br(_fee_ts_env),
