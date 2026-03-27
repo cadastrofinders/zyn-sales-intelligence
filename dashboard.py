@@ -1469,7 +1469,7 @@ elif page == "Visão Geral":
                      color_discrete_sequence=[GREEN])
         fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=300,
                           margin=dict(l=0, r=20, t=10, b=0))
-        fig.update_xaxes(tickformat=",.0s")
+        fig.update_xaxes(tickformat=",.0s", tickprefix="R$ ")
         st.plotly_chart(fig, use_container_width=True)
 
     with col_r:
@@ -1490,7 +1490,7 @@ elif page == "Visão Geral":
         fig3 = px.bar(tg, x="Gestora", y="Volume", color_discrete_sequence=[NAVY])
         fig3.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=400,
                            xaxis_tickangle=-45, margin=dict(l=0, r=20, t=10, b=120))
-        fig3.update_yaxes(tickformat=",.0s")
+        fig3.update_yaxes(tickformat=",.0s", tickprefix="R$ ")
         st.plotly_chart(fig3, use_container_width=True)
 
     # Top emissores
@@ -1509,7 +1509,7 @@ elif page == "Visão Geral":
         fig4.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=400,
                            xaxis_tickangle=-45, margin=dict(l=0, r=20, t=10, b=120),
                            xaxis_title="Emissor", yaxis_title="Volume")
-        fig4.update_yaxes(tickformat=",.0s")
+        fig4.update_yaxes(tickformat=",.0s", tickprefix="R$ ")
         st.plotly_chart(fig4, use_container_width=True)
         st.dataframe(te_display[["Emissor", "Vol.", "Fundos", "Gestoras", "Tipos"]], use_container_width=True)
 
@@ -1932,7 +1932,7 @@ elif page == "Fundos & Papéis":
                         labels={"emissor": "Emissor", "volume": "Volume", "n_gestoras": "Nº Gestoras"})
         fig_em.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=400,
                              xaxis_tickangle=-45, margin=dict(l=0, r=20, t=10, b=120))
-        fig_em.update_yaxes(tickformat=",.0s")
+        fig_em.update_yaxes(tickformat=",.0s", tickprefix="R$ ")
         st.plotly_chart(fig_em, use_container_width=True)
 
         # Drill-down: selecionar emissor
@@ -2071,7 +2071,7 @@ elif page == "Emissores":
                  labels={"emissor": "Emissor", "volume": "Volume", "n_gestoras": "Gestoras"})
     fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=400,
                       xaxis_tickangle=-45, margin=dict(l=0, r=20, t=10, b=120))
-    fig.update_yaxes(tickformat=",.0s")
+    fig.update_yaxes(tickformat=",.0s", tickprefix="R$ ")
     st.plotly_chart(fig, use_container_width=True)
 
     # Tabela completa
@@ -2272,7 +2272,7 @@ elif page == "Devedores":
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=420,
             xaxis_tickangle=-45, margin=dict(l=0, r=20, t=10, b=140),
         )
-        fig_dev.update_yaxes(tickformat=",.0s")
+        fig_dev.update_yaxes(tickformat=",.0s", tickprefix="R$ ")
         st.plotly_chart(fig_dev, use_container_width=True)
 
         # Tabela completa
@@ -2410,7 +2410,7 @@ elif page == "Devedores":
                                     color_discrete_sequence=CHART_COLORS)
                     fig_tl.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=300,
                                          margin=dict(l=0, r=20, t=10, b=0))
-                    fig_tl.update_yaxes(tickformat=",.0s")
+                    fig_tl.update_yaxes(tickformat=",.0s", tickprefix="R$ ")
                     st.plotly_chart(fig_tl, use_container_width=True)
 
     else:
@@ -2510,7 +2510,7 @@ elif page == "Fundos com Caixa":
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=420,
         xaxis_tickangle=-45, margin=dict(l=0, r=20, t=10, b=180),
     )
-    fig_cx.update_yaxes(tickformat=",.0s")
+    fig_cx.update_yaxes(tickformat=",.0s", tickprefix="R$ ")
     st.plotly_chart(fig_cx, use_container_width=True)
 
     # --- Tabela ---
@@ -2594,7 +2594,7 @@ elif page == "Fundos com Caixa":
                 fig_d = px.bar(top_dev, x="Devedor", y="Volume", color_discrete_sequence=[GREEN])
                 fig_d.update_layout(height=250, margin=dict(l=0, r=20, t=20, b=80), title_text="Top Devedores",
                                     xaxis_tickangle=-30)
-                fig_d.update_yaxes(tickformat=",.0s")
+                fig_d.update_yaxes(tickformat=",.0s", tickprefix="R$ ")
                 st.plotly_chart(fig_d, use_container_width=True)
 
         # Todos os papéis
@@ -3258,7 +3258,7 @@ elif page == "Oportunidades":
         fig_opp = px.bar(demand_df, x="Tipo Ativo", y="Capacidade Estimada", color_discrete_sequence=[GREEN])
         fig_opp.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", height=400,
                               margin=dict(l=0,r=20,t=10,b=0))
-        fig_opp.update_yaxes(tickformat=",.0s")
+        fig_opp.update_yaxes(tickformat=",.0s", tickprefix="R$ ")
         st.plotly_chart(fig_opp, use_container_width=True)
 
         demand_disp = demand_df.copy()
